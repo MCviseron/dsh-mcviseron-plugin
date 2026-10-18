@@ -127,9 +127,13 @@ pnpm check     # typecheck + test + build
 
 ## 自动化任务
 
-仓库通过 DSH「自动化任务」定期检查最新 DSH 版本并修复兼容性问题（任务内容与创建方式见 [CHANGELOG](CHANGELOG.md) 与下节）。
+仓库通过 DSH「自动化任务」定期检查最新 DSH 版本并修复兼容性问题：
 
-> 任务 id 与下次运行时间由 DSH 自动化任务页面维护；本仓库只记录任务提示词，便于重建。
+- 每周一 10:00（`Asia/Shanghai`）检查 npm 上最新 `@deepseek-ai/dsh`，升级 peer 范围、修复接口变更导致的 bug，并更新 CHANGELOG / README 的兼容性表。
+- 任务 id `schedule-f3ea5b03-26e2-4192-95d7-d3d4b61ef751`，首次运行 2026-10-19 10:00。
+- 任务提示词、重建步骤与存储说明见 [docs/automation-task.md](docs/automation-task.md)。
+
+> 任务记录写入 `~/.dsh/storages/schedule.json`，重启 DSH 后由 Host 加载并计时；若在重启前于自动化任务页面改动其他任务，运行中的 Host 可能重写该文档，重新写入即可。
 
 ## 许可
 

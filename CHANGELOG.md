@@ -25,6 +25,7 @@
 - 新增两条 loopback 设置桥：`/api/dsh-mcviseron/settings/describe` 与 `/api/dsh-mcviseron/settings/mutate`，带 loopback 地址、Host 头与同源 POST 校验；只接受本命名空间与三个已知字段。
 - 中英文案、`test/schedule.test.ts` 时间规则单测、GitHub Actions CI（typecheck + test + build）。
 - 总插件骨架：一个 profile 条目（id `mcviseron`）承载后续组件，`src/` 按 Host / client / 共享逻辑分层。
+- 新增 DSH 自动化任务「维护 dsh-mcviseron-plugin 对最新 DSH 的兼容性」：每周一 10:00（Asia/Shanghai）检查最新 DSH、升级 peer 范围并修复兼容性 bug；任务 id 与提示词见 [docs/automation-task.md](docs/automation-task.md)。
 
 ### Compatibility
 
