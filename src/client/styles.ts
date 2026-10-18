@@ -32,8 +32,8 @@ export const styles = {
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 16,
-    padding: '14px 0',
-    borderTop: '1px solid ' + borderL2,
+    padding: '10px 0',
+    flexWrap: 'wrap',
   } satisfies CSSProperties,
   text: {
     display: 'flex',
