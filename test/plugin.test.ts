@@ -1,15 +1,18 @@
 /**
- * Whole-plugin integration: the three components installed together behind one
- * Host entry, with the same loopback bridge the Web GUI uses.
+ * Whole-package integration: the three components load as separate bundle
+ * entries in one Cordis context, exactly as the bundle patch inserts them.
  *
  * `node --experimental-strip-types test/plugin.test.ts`
  */
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { Context } from '@deepseek-ai/cordis'
-import * as plugin from '../src/index.ts'
+import * as appearance from '../src/appearance/index.ts'
+import * as autoReview from '../src/auto-review/index.ts'
+import * as taskGuard from '../src/task-guard/index.ts'
+import { MCVISERON_SETTINGS_NAMESPACE } from '../src/namespace.ts'
 
-const settle = () => new Promise((resolve) => setTimeout(resolve, 25))
+const settle = () => new Promise((resolve) => setTimeout(resolve, 30))
 
 interface Harness {
   root: Context
@@ -27,7 +30,7 @@ function harness(): Harness {
   root.provide('settings', {
     writable: true,
     configure: () => () => {},
-    describe: () => [{ ns: 'mcviseron', value: { appearance: { enabled: true, lightStart: '08:00', lightEnd: '23:00' } }, revision: 0 }],
+    describe: () => [{ ns: MCVISERON_SETTINGS_NAMESPACE, value: { enabled: true, lightStart: '08:00', lightEnd: '23:00' }, revision: 0 }],
     mutate: async () => {},
   })
   root.provide('approval', { request: async (request: unknown) => { approvals.push(request); return 'allowed-once' } })
@@ -41,16 +44,18 @@ function harness(): Harness {
   return { root, routes, approvals, presetWrites }
 }
 
-const config = {
-  appearance: { enabled: true, lightStart: '08:00', lightEnd: '23:00' },
-  autoReview: { translateApprovalReason: true, keepPresetGuard: true },
-  taskGuard: { locale: 'en', staleAfterCalls: 1 },
+async function load(h: Harness): Promise<unknown> {
+  const fibers: any[] = []
+  fibers.push(await (h.root.plugin as any)(appearance, { enabled: true, lightStart: '08:00', lightEnd: '23:00' }))
+  fibers.push(await (h.root.plugin as any)(autoReview, { translateApprovalReason: true, keepPresetGuard: true }))
+  fibers.push(await (h.root.plugin as any)(taskGuard, { locale: 'en', staleAfterCalls: 1 }))
+  await settle()
+  return { dispose: async () => { for (const fiber of fibers.reverse()) await (fiber as any).dispose() } }
 }
 
-test('the merged Host entry installs all three components into one context', async () => {
+test('the three bundle entries install all components into one context', async () => {
   const h = harness()
-  const fiber = await h.root.plugin(plugin as never, config as never)
-  await settle()
+  const bundle = await load(h) as { dispose: () => Promise<void> }
   try {
     // Appearance: the loopback bridge is registered on the Host web server.
     assert.deepEqual(h.routes.map(route => route.path).sort(), [
@@ -58,7 +63,7 @@ test('the merged Host entry installs all three components into one context', asy
       '/api/dsh-mcviseron/settings/mutate',
     ])
 
-    // Auto-review: preset guard + approval translation share the same plugin.
+    // Auto-review: preset guard + approval translation.
     const request = {
       agent: { session: { requestHeader: () => ({ config: { provider: 'deepseek-official', model: 'deepseek-flash' } }) } },
       toolName: 'pwsh',
@@ -85,18 +90,21 @@ test('the merged Host entry installs all three components into one context', asy
     assert.equal(notice.source.kind, 'plugin:task-guard')
     assert.match(notice.content[0].text, /no task is in_progress/)
   } finally {
-    await fiber.dispose()
+    await bundle.dispose()
   }
 })
 
-test('the merged Host entry loads with no config at all', async () => {
+test('each entry also loads with no config at all', async () => {
   const h = harness()
-  const fiber = await (h.root.plugin as any)(plugin)
-  await settle()
+  const fibers: any[] = []
   try {
+    for (const component of [appearance, autoReview, taskGuard]) {
+      fibers.push(await (h.root.plugin as any)(component))
+    }
+    await settle()
     assert.equal(h.root.fiber.state, 2)
     assert.equal(h.routes.length, 2)
   } finally {
-    await fiber.dispose()
+    for (const fiber of fibers.reverse()) await (fiber as any).dispose()
   }
 })

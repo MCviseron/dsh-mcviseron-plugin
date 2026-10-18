@@ -2,15 +2,17 @@
 
 [English](README.en.md) | 中文
 
-MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个插件行承载全部 DSH 组件，共用同一个设置命名空间、生命周期与发布流程。原 `dsh-auto-review-restart-fix` 与 `dsh-task-guard` 已并入本插件并逐步废弃。
+MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包承载多个组件，每个组件是独立的 bundle 条目（独立 profile 条目、独立 Config、独立设置命名空间），因此 DSH 插件清单会分别列出它们。原 `dsh-auto-review-restart-fix` 与 `dsh-task-guard` 已并入本插件并逐步废弃。
 
 ## 组件
 
-| 组件 | 作用 | 宿主/浏览器 |
-| --- | --- | --- |
-| **外观 · 按时间自动切换深浅色** | 在「设置 → 通用 → 外观」新增选项，按本机时间切换浅色/深色，时段可自定义 | Host 设置桥 + 浏览器驱动 |
-| **Auto review 加固** | 整套宿主退出时不再把 Auto 会话写成「完全访问」；自动审查转人工审批时，在**不改动审查原文**的前提下追加中文译文 | Host |
-| **Todo 计划守卫** | 多阶段任务忘记更新 todo 时发出 notice（可选硬拦截），让计划随工作推进 | Host |
+| 组件 | profile 条目 id | 模块 | 作用 |
+| --- | --- | --- | --- |
+| **外观 · 按时间自动切换深浅色** | `mcviseron-appearance` | `dsh-mcviseron-plugin/appearance` | 「设置 → 通用 → 外观」新增选项，按本机时间切换浅/深色 |
+| **Auto review 加固** | `mcviseron-auto-review` | `dsh-mcviseron-plugin/auto-review` | 关机不再把 Auto 会话写成完全访问；人审提示追加中文译文（不改审查原文） |
+| **Todo 计划守卫** | `mcviseron-task-guard` | `dsh-mcviseron-plugin/task-guard` | 多阶段任务忘记更新 todo 时发出 notice（可选硬拦截） |
+
+> 0.2.0 曾把三个组件放在**一个** `mcviseron` 条目里，插件管理器只显示 1 个「组件」。0.3.0 起拆成三个条目，插件管理器/插件清单会显示 3 个组件，各自可单独启停与配置。
 
 ### 1. 外观 · 按时间自动切换深浅色
 
@@ -45,7 +47,7 @@ MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个插件行承载全�
 pnpm add link:D:/Program/DSH-Plugin-Class/dsh-mcviseron-plugin
 ```
 
-然后把 `dsh-mcviseron-plugin` 加入 `package.json` 的 `dsh.profile.bundles`，并**从 bundles / dependencies 中移除** `dsh-auto-review-restart-fix` 与 `dsh-task-guard`（它们的功能已并入本插件）。重启 DSH 后，本包的 `cordis.patch.yml` 会插入插件行（条目 id 固定为 `mcviseron`）。
+把 `dsh-mcviseron-plugin` 加入 `package.json` 的 `dsh.profile.bundles`，并**从 bundles / dependencies 中移除** `dsh-auto-review-restart-fix` 与 `dsh-task-guard`。重启 DSH 后，本包的 `cordis.patch.yml` 会插入三个组件条目（见上表 id/模块）。
 
 ### 方式二：发布后从 npm 安装
 
@@ -53,47 +55,52 @@ pnpm add link:D:/Program/DSH-Plugin-Class/dsh-mcviseron-plugin
 pnpm add dsh-mcviseron-plugin
 ```
 
-> **注意**：DSH 0.2 起，插件的设置命名空间等于 profile 条目 id。本插件使用 `mcviseron`，请保留该条目 id，否则外观设置行会显示「无法读取插件设置」。
+> **注意**：DSH 0.2 起，插件的设置命名空间等于 profile 条目 id。外观组件使用 `mcviseron-appearance`，请保留这些条目 id，否则外观设置行会显示「无法读取插件设置」。
 
 ## 配置
 
-配置写在 profile 的 `cordis.patch.yml`，按组件分组：
+三个条目各自配置（bundle 自带默认值，profile 的 `cordis.patch.yml` 只需覆盖要改的字段）：
 
 ```yaml
-- id: mcviseron
-  name: dsh-mcviseron-plugin
+- id: mcviseron-appearance
+  name: dsh-mcviseron-plugin/appearance
   config:
-    appearance:
-      enabled: true
-      lightStart: "08:00"
-      lightEnd: "23:00"
-    autoReview:
-      keepPresetGuard: true
-      translateApprovalReason: true
-      translateTimeoutMs: 6000
-      translateMaxChars: 4000
-      translateProvider: ""
-      translateModel: ""
-    taskGuard:
-      enabled: true
-      locale: zh
-      staleAfterCalls: 5
-      repeatEveryCalls: 4
-      blockAfterCalls: 0
-      rejectMissingActive: false
-      sourceKind: auto
-      maxListItems: 6
+    enabled: true
+    lightStart: "08:00"
+    lightEnd: "23:00"
+
+- id: mcviseron-auto-review
+  name: dsh-mcviseron-plugin/auto-review
+  config:
+    keepPresetGuard: true
+    translateApprovalReason: true
+    translateTimeoutMs: 6000
+    translateMaxChars: 4000
+    translateProvider: ""
+    translateModel: ""
+
+- id: mcviseron-task-guard
+  name: dsh-mcviseron-plugin/task-guard
+  config:
+    enabled: true
+    locale: zh
+    staleAfterCalls: 5
+    repeatEveryCalls: 4
+    blockAfterCalls: 0
+    rejectMissingActive: false
+    sourceKind: auto
+    maxListItems: 6
 ```
 
-### `appearance`
+### `mcviseron-appearance`
 
 | 字段 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
-| `enabled` | boolean | `false` | 是否按时间自动切换；插件默认不接管配色 |
+| `enabled` | boolean | `false` | 是否按时间自动切换；默认不接管配色 |
 | `lightStart` | `HH:MM` | `08:00` | 早间开始（含） |
 | `lightEnd` | `HH:MM` | `23:00` | 早间结束（不含） |
 
-### `autoReview`
+### `mcviseron-auto-review`
 
 | 字段 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
@@ -104,7 +111,7 @@ pnpm add dsh-mcviseron-plugin
 | `translateProvider` | string | `''` | 固定翻译 provider；空 = 跟随会话 |
 | `translateModel` | string | `''` | 固定翻译 model；空 = 跟随会话 |
 
-### `taskGuard`
+### `mcviseron-task-guard`
 
 | 字段 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
@@ -121,22 +128,36 @@ pnpm add dsh-mcviseron-plugin
 
 ## 工作原理
 
+### 三个 bundle 条目
+
+`cordis.patch.yml` 插入三条 loader 条目，分别指向本包的三个子路径导出：
+
+```yaml
+- id: mcviseron-appearance
+  name: dsh-mcviseron-plugin/appearance
+- id: mcviseron-auto-review
+  name: dsh-mcviseron-plugin/auto-review
+- id: mcviseron-task-guard
+  name: dsh-mcviseron-plugin/task-guard
+```
+
+每个条目导出自己的 `Config` 与 `apply()`；组件实现仍共享 `src/components/` 与纯逻辑。DSH 插件清单按 loader 条目逐条渲染，因此三个组件分别可见、可启停、可配置。
+
 ### 组件装配
 
-`src/index.ts` 的 `apply()` 把配置拆成三个分组（`componentConfigs`，递归展开 DSH 0.2 的 volatile 引用）并分别安装：
-
-- `installAutoReview(ctx, autoReview)`：通过 `ctx.inject(['permissionPresets' | 'approval'])` 特性探测并包装服务；服务不存在时静默 no-op。
-- `installTaskGuard(ctx, taskGuard)`：注册 `tools/pre-execute`、`tools/post-execute`、`agent/pre-step`、`session/event` 四个 hook。
-- 外观组件：Host 只提供设置桥；浏览器半边（`src/client/`）读取同一命名空间的 `appearance` 分组并驱动 `ctx.theme.setTheme`。
+- `src/appearance/index.ts`：只有 Host 设置桥（`ctx.settings.configure({ auto: false })` + 两条 loopback 路由）；浏览器半边在 `src/client/`，读取 `mcviseron-appearance` 命名空间并驱动 `ctx.theme.setTheme`。
+- `src/auto-review/index.ts`：`installAutoReview`，通过 `ctx.inject(['permissionPresets' | 'approval'])` 特性探测并包装服务。
+- `src/task-guard/index.ts`：`installTaskGuard`，注册 `tools/pre-execute`、`tools/post-execute`、`agent/pre-step`、`session/event`。
+- 三个 entry 都会先 `toPlain()` 展开 DSH 0.2 的 volatile 配置引用，再交给组件。
 
 ### 设置桥
 
-DSH 0.2 的官方设置 apiproxy 不向浏览器暴露第三方命名空间，因此 Host 注册两条 loopback 接口：
+DSH 0.2 的官方设置 apiproxy 不向浏览器暴露第三方命名空间，因此外观组件注册两条 loopback 接口：
 
 - `POST /api/dsh-mcviseron/settings/describe`
 - `POST /api/dsh-mcviseron/settings/mutate`
 
-只接受命名空间 `mcviseron`、分组 `appearance` 与三个已知字段（嵌套路径 `['appearance', field]`），并执行 loopback 地址 + Host 头 + 同源校验。`autoReview` / `taskGuard` 不出现在浏览器接口里，只通过 profile 配置维护。
+只接受命名空间 `mcviseron-appearance` 与 `enabled` / `lightStart` / `lightEnd` 三个字段，并执行 loopback 地址 + Host 头 + 同源校验。另外两个组件的 Config 只通过 profile 配置维护（其设置页由 DSH 自动生成的 Config 表单提供）。
 
 ### 时间语义（appearance）
 
@@ -146,7 +167,7 @@ DSH 0.2 的官方设置 apiproxy 不向浏览器暴露第三方命名空间，�
 
 | DSH 版本 | 状态 |
 | --- | --- |
-| `0.2.1-rc.2` | ✅ 本版本验证（desktop profile；60 项测试 + 真实 Cordis 上下文） |
+| `0.2.1-rc.2` | ✅ 本版本验证（desktop profile；58 项测试 + 真实 Cordis 上下文） |
 | `0.2.0-rc.x` | ✅ peer 范围覆盖（同一套设置、审批与 hook 接缝） |
 | `0.1.x` | ❌ 不支持：0.1 的插件自行注册设置命名空间，与本插件的条目 id 命名空间模型不同 |
 
@@ -154,7 +175,7 @@ DSH 0.2 的官方设置 apiproxy 不向浏览器暴露第三方命名空间，�
 
 ## 从两个独立插件迁移
 
-见 [docs/migration-from-standalone.md](docs/migration-from-standalone.md)：字段映射、profile 修改、验证清单。旧仓库 `dsh-auto-review-restart-fix` 与 `dsh-task-guard` 由维护者废弃，功能全部在本插件内继续维护。
+见 [docs/migration-from-standalone.md](docs/migration-from-standalone.md)：字段映射、profile 修改（三条目）、验证清单。旧仓库 `dsh-auto-review-restart-fix` 与 `dsh-task-guard` 由维护者废弃，功能全部在本插件内继续维护。
 
 ## 自动化任务
 
@@ -171,12 +192,14 @@ DSH 0.2 的官方设置 apiproxy 不向浏览器暴露第三方命名空间，�
 ```
 src/
   api.ts                        浏览器/Host 共用的 loopback 路径
-  namespace.ts                  设置命名空间（= profile 条目 id）
+  namespace.ts                  外观条目的设置命名空间
   schedule.ts                   纯时间规则（可单测）
-  config.ts                     合并后的 Config（三个组件分组）
+  volatile.ts                   展开 DSH volatile 配置引用
   loopback.ts                   loopback 信任栅栏
   routes.ts                     settings describe/mutate 桥
-  index.ts                      Host 入口：装配组件 + 设置桥
+  appearance/index.ts           外观条目：Config + 设置桥
+  auto-review/index.ts          Auto review 条目：Config + 装配
+  task-guard/index.ts           Todo 守卫条目：Config + 装配
   components/
     auto-review/index.ts        关机预设守卫 + 审批译文
     auto-review/translate.ts    展示翻译（取词、缓存、超时、清洗）
@@ -191,22 +214,22 @@ src/
 test/
   schedule.test.ts              时间规则
   routes.test.ts                设置桥与信任栅栏
-  config.test.ts                合并 Config 与分组
+  config.test.ts                三个条目的 Config
   auto-review.test.ts           Auto review 组件行为
   auto-review-cordis.test.ts    真实 Cordis 上下文
   task-guard.test.ts            Todo 守卫行为
   task-guard-cordis.test.ts     真实 Cordis 上下文
-  plugin.test.ts                三组件装配集成测试
+  plugin.test.ts                三条目装配集成测试
 ```
 
 ## 开发
 
 ```bash
 pnpm install
-pnpm check     # typecheck + 60 项测试 + 构建
+pnpm check     # typecheck + 58 项测试 + 构建
 ```
 
-构建产物：`lib/index.js`（Host ESM）与 `lib/client.js`（浏览器模块，`window.__ModuleLoader__` 包装）。`lib/` 不入库。
+构建产物：`lib/appearance.js`、`lib/auto-review.js`、`lib/task-guard.js`（Host ESM）与 `lib/client.js`（浏览器模块）。`lib/` 不入库。
 
 ## 许可
 

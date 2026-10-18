@@ -1,10 +1,13 @@
-# dsh-mcviseron-plugin bundle patch: inserts the master plugin row into the
-# web profile roster. Every MCviseron component ships behind this one row, so
-# all components share one settings namespace and one lifecycle:
-#   - appearance   (time-based light/dark)
-#   - autoReview   (shutdown preset guard + Chinese approval translation)
-#   - taskGuard    (todo plan notices)
-# The entry id doubles as the DSH >= 0.2 settings namespace ("mcviseron").
+# dsh-mcviseron-plugin bundle patch: inserts one loader entry per component so
+# the DSH plugin inventory lists them individually:
+#   - appearance   (time-based light/dark; settings row + loopback bridge)
+#   - auto-review  (shutdown preset guard + Chinese approval translation)
+#   - task-guard   (todo plan notices)
+# Entry ids double as the DSH >= 0.2 settings namespaces.
 - insert:
-    - id: mcviseron
-      name: 'dsh-mcviseron-plugin'
+    - id: mcviseron-appearance
+      name: 'dsh-mcviseron-plugin/appearance'
+    - id: mcviseron-auto-review
+      name: 'dsh-mcviseron-plugin/auto-review'
+    - id: mcviseron-task-guard
+      name: 'dsh-mcviseron-plugin/task-guard'

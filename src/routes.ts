@@ -26,12 +26,8 @@ export interface SettingsBridge {
 }
 
 const MAX_BODY_BYTES = 8 * 1024
-/** Appearance fields the row may write; every other config group stays host-only. */
-const APPEARANCE_FIELDS = new Map<string, 'boolean' | 'time'>([
-  ['enabled', 'boolean'],
-  ['lightStart', 'time'],
-  ['lightEnd', 'time'],
-])
+/** Appearance fields the row may write. */
+const FIELDS = new Set(['enabled', 'lightStart', 'lightEnd'])
 
 function json(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' })
@@ -81,18 +77,11 @@ function unwrapValue(value: unknown): unknown {
   return value
 }
 
-/** Read the `appearance` group out of a settings value, tolerating any shape. */
-function appearanceOf(value: unknown): unknown {
-  const plain = unwrapValue(value)
-  if (plain === null || typeof plain !== 'object' || Array.isArray(plain)) return undefined
-  return (plain as { appearance?: unknown }).appearance
-}
-
-/** The browser-facing view: only the appearance group, normalized. */
+/** The browser-facing view: the flat appearance fields, normalized. */
 function toPluginView(descriptor: SettingsBridgeView): Record<string, unknown> {
   return {
     ns: String(descriptor.ns),
-    value: { appearance: normalizeScheduleConfig(appearanceOf(descriptor.value)) },
+    value: normalizeScheduleConfig(unwrapValue(descriptor.value)),
     revision: descriptor.revision,
   }
 }
@@ -144,13 +133,11 @@ export function makeSettingsRoutes(settings: SettingsBridge): WebRoute[] {
       const ops = record.ops as SettingsPathOp[]
       const valid = ops.every((op) => {
         if (op.op !== 'set' && op.op !== 'unset') return false
-        if (!Array.isArray(op.path) || op.path.length !== 2) return false
-        const [group, field] = op.path
-        if (group !== 'appearance' || typeof field !== 'string') return false
-        const kind = APPEARANCE_FIELDS.get(field)
-        if (kind === undefined) return false
+        if (!Array.isArray(op.path) || op.path.length !== 1) return false
+        const field = op.path[0]
+        if (typeof field !== 'string' || !FIELDS.has(field)) return false
         if (op.op === 'unset') return true
-        return kind === 'boolean'
+        return field === 'enabled'
           ? typeof op.value === 'boolean'
           : typeof op.value === 'string' && parseTimeOfDay(op.value) !== undefined
       })

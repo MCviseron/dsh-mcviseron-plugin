@@ -11,6 +11,33 @@
 - 设置行支持「立即测试」预览按钮。
 - 为 `autoReview` / `taskGuard` 提供可视化设置页（当前通过 profile 配置维护）。
 
+## [0.3.0] - 2026-10-18
+
+### Fixed
+
+- **插件管理器只显示 1 个组件**：0.2.0 把三个组件放进同一个 `mcviseron` 条目，DSH 插件清单按 loader 条目渲染，因此「包含的组件」只有 1 项。本版把组件拆成三个独立的 bundle 条目，插件管理器与插件清单现在分别列出 appearance / auto-review / task-guard，可单独启停与配置。
+
+### Changed
+
+- `cordis.patch.yml` 改为插入三条目：
+  - `mcviseron-appearance` → `dsh-mcviseron-plugin/appearance`
+  - `mcviseron-auto-review` → `dsh-mcviseron-plugin/auto-review`
+  - `mcviseron-task-guard` → `dsh-mcviseron-plugin/task-guard`
+- 包新增三个子路径导出与三个 Host 构建产物：`lib/appearance.js`、`lib/auto-review.js`、`lib/task-guard.js`；删除旧的聚合 `lib/index.js`。
+- 配置结构从 0.2.0 的嵌套分组（`appearance` / `autoReview` / `taskGuard`）恢复为**每个条目一份扁平 Config**；外观命名空间从 `mcviseron` 改为 `mcviseron-appearance`，设置桥路径恢复为 `['enabled']` 等扁平字段。
+- 每个条目在 `apply()` 前用 `toPlain()` 展开 DSH 0.2 的 volatile 配置引用（否则组件会收到引用对象而不是布尔/数字）。
+- 版本号 `0.2.0` → `0.3.0`。
+
+### Migration
+
+- 本机 profile 已把单个 `mcviseron` 条目替换为三条目，配置值原样拆开；旧条目不再读取。
+- 0.2.0 嵌套配置到 0.3.0 三条目的对应关系见 [docs/migration-from-standalone.md](docs/migration-from-standalone.md#30-从-020-的嵌套配置迁移)。
+
+### Tests
+
+- `test/config.test.ts` 改为分别校验三个条目的 Config；`test/plugin.test.ts` 改为加载三条目验证组合行为；设置桥测试恢复扁平字段。
+- 合计 **58 项测试**全部通过。
+
 ## [0.2.0] - 2026-10-18
 
 ### Added

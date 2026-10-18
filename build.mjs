@@ -1,5 +1,5 @@
 import { build } from 'esbuild'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
 
 const sharedExternal = [
   '@deepseek-ai/*',
@@ -11,19 +11,29 @@ const sharedExternal = [
 ]
 
 await mkdir('lib', { recursive: true })
+// Remove the pre-0.3 aggregate output if an older build left it behind.
+await rm('lib/index.js', { force: true })
 
-// Host half: one ESM bundle with local source inlined and all shared packages external.
-await build({
-  entryPoints: ['src/index.ts'],
-  outfile: 'lib/index.js',
-  bundle: true,
-  format: 'esm',
-  platform: 'node',
-  target: 'node22',
-  external: sharedExternal,
-  sourcemap: false,
-  logLevel: 'info',
-})
+// Host entries: one bundle per component, so the DSH plugin inventory lists
+// each component as its own loader entry (name: "dsh-mcviseron-plugin/<id>").
+const hostEntries = [
+  ['src/appearance/index.ts', 'lib/appearance.js'],
+  ['src/auto-review/index.ts', 'lib/auto-review.js'],
+  ['src/task-guard/index.ts', 'lib/task-guard.js'],
+]
+for (const [entry, outfile] of hostEntries) {
+  await build({
+    entryPoints: [entry],
+    outfile,
+    bundle: true,
+    format: 'esm',
+    platform: 'node',
+    target: 'node22',
+    external: sharedExternal,
+    sourcemap: false,
+    logLevel: 'info',
+  })
+}
 
 // Browser half: bundle as CommonJS, then wrap it in the DSH module-loader
 // format the Web shell executes. External runtime modules are provided by the
@@ -70,4 +80,4 @@ const wrapped = [
 ].filter(line => line !== '').join('\n')
 
 await writeFile('lib/client.js', wrapped, 'utf8')
-console.log('built lib/index.js and lib/client.js')
+console.log('built lib/appearance.js, lib/auto-review.js, lib/task-guard.js and lib/client.js')

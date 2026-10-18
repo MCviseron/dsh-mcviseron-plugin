@@ -2,22 +2,17 @@ import { MCVISERON_API } from '../api.ts'
 import { MCVISERON_SETTINGS_NAMESPACE } from '../namespace.ts'
 import { normalizeScheduleConfig, type ScheduleConfig } from '../schedule.ts'
 
-/** The bridge returns only the appearance group; other groups stay host-only. */
-interface AppearanceView {
-  appearance?: unknown
-}
-
 interface DescribeResponse {
   ok?: boolean
   value?: {
-    namespaces?: Array<{ ns?: unknown; value?: AppearanceView }>
+    namespaces?: Array<{ ns?: unknown; value?: unknown }>
     writable?: boolean
   }
 }
 
 interface MutateResponse {
   ok?: boolean
-  value?: { value?: AppearanceView }
+  value?: { value?: unknown }
   code?: string
   message?: string
 }
@@ -33,7 +28,7 @@ async function post(path: string, body: unknown): Promise<unknown> {
 }
 
 /**
- * Read the appearance group through the Host bridge.
+ * Read the appearance entry through the Host bridge.
  * @returns the stored schedule, or undefined when the bridge or namespace is
  * unavailable (the caller keeps the built-in defaults).
  */
@@ -43,14 +38,14 @@ export async function readScheduleConfig(): Promise<ScheduleConfig | undefined> 
     if (body.ok !== true) return undefined
     const view = body.value?.namespaces?.find(candidate => String(candidate.ns) === MCVISERON_SETTINGS_NAMESPACE)
     if (view === undefined) return undefined
-    return normalizeScheduleConfig(view.value?.appearance)
+    return normalizeScheduleConfig(view.value)
   } catch {
     return undefined
   }
 }
 
 /**
- * Write the whole appearance group through the Host bridge (one atomic batch,
+ * Write the whole appearance config through the Host bridge (one atomic batch,
  * so a partial window can never be persisted).
  * @param config - the desired schedule.
  * @returns the persisted schedule, or undefined when the write was refused.
@@ -60,13 +55,13 @@ export async function writeScheduleConfig(config: ScheduleConfig): Promise<Sched
     const body = await post(MCVISERON_API.mutate, {
       ns: MCVISERON_SETTINGS_NAMESPACE,
       ops: [
-        { op: 'set', path: ['appearance', 'enabled'], value: config.enabled },
-        { op: 'set', path: ['appearance', 'lightStart'], value: config.lightStart },
-        { op: 'set', path: ['appearance', 'lightEnd'], value: config.lightEnd },
+        { op: 'set', path: ['enabled'], value: config.enabled },
+        { op: 'set', path: ['lightStart'], value: config.lightStart },
+        { op: 'set', path: ['lightEnd'], value: config.lightEnd },
       ],
     }) as MutateResponse
     if (body.ok !== true) return undefined
-    return normalizeScheduleConfig(body.value?.value?.appearance)
+    return normalizeScheduleConfig(body.value?.value)
   } catch {
     return undefined
   }
