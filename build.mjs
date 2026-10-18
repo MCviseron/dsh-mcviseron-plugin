@@ -21,6 +21,7 @@ const hostEntries = [
   ['src/appearance/index.ts', 'lib/appearance.js'],
   ['src/auto-review-fix/index.ts', 'lib/auto-review-fix.js'],
   ['src/task-guard/index.ts', 'lib/task-guard.js'],
+  ['src/restart/index.ts', 'lib/restart.js'],
 ]
 for (const [entry, outfile] of hostEntries) {
   await build({
@@ -81,4 +82,4 @@ const wrapped = [
 ].filter(line => line !== '').join('\n')
 
 await writeFile('lib/client.js', wrapped, 'utf8')
-console.log('built lib/appearance.js, lib/auto-review-fix.js, lib/task-guard.js and lib/client.js')
+console.log('built lib/appearance.js, lib/auto-review-fix.js, lib/task-guard.js, lib/restart.js and lib/client.js')

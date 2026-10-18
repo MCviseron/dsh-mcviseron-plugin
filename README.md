@@ -11,6 +11,7 @@ MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包承载多�
 | **外观 · 按时间自动切换深浅色** | `mcviseron-appearance` | `dsh-mcviseron-plugin/appearance` | 「设置 → 通用 → 外观」新增选项，按本机时间切换浅/深色 |
 | **Auto review 修复** | `mcviseron-auto-review-fix` | `dsh-mcviseron-plugin/auto-review-fix` | 关机不再把 Auto 会话写成完全访问；人审提示追加中文译文（不改审查原文） |
 | **Todo 计划守卫** | `mcviseron-task-guard` | `dsh-mcviseron-plugin/task-guard` | 多阶段任务忘记更新 todo 时发出 notice（可选硬拦截） |
+| **重启 DeepSeek Harness** | `mcviseron-restart` | `dsh-mcviseron-plugin/restart` | 设置里的重启按钮：关闭并重新启动桌面应用 |
 
 > 0.2.0 曾把三个组件放在**一个** `mcviseron` 条目里，插件管理器只显示 1 个「组件」。0.3.0 起拆成三个条目，插件管理器/插件清单会显示 3 个组件，各自可单独启停与配置。
 
@@ -40,6 +41,14 @@ MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包承载多�
 - **步骤意图检测**（`detectStepIntent`）：监听官方 `agent/assistant-stream` 的 `text-delta` / `reasoning-delta`，识别「Now I will …」「接下来我会 …」「下一步 …」等句式，并与 `pending` todo 做 token 匹配。命中时附一条**定向 notice**（每条消息最多一次），里面带可直接发送的 `todo_write` JSON；不匹配、没有流、解析失败都静默跳过，**绝不阻塞任务**。
 - **中文 todo 展示**（`translateTodoContent`）：notice 里的英文 todo 标题会经 `llm` 批量翻译成「中文（English）」显示，按标题缓存、超时 3 秒可配；翻译失败就显示原文。notice 里还会提示「todo 内容可以直接用中文书写」。**只影响 notice 展示，不改写模型写入的 todo 列表**。
 - notice 的 source kind 按会话格式自动选择：v4 用 `plugin:task-guard`，v3 用 `plugin` + `plugin: 'task-guard'`。
+
+### 4. 重启 DeepSeek Harness
+
+- 在「设置 → 通用」新增一行「重启 DeepSeek Harness」，点击后确认并重启桌面应用。
+- 重启方式：Host 写一个临时 PowerShell 助手（detached），先关闭 Electron 主进程；Host 在 IPC 断开后按官方流程优雅关闭所有插件与会话；助手等待主进程与 Host 退出后，清除 `ELECTRON_RUN_AS_NODE` 并重新启动应用。
+- 会中断正在运行的任务（与托盘「退出」的提示一致），不会修改插件、配置或会话记录。
+- 只在桌面版可用；`dsh web` 下状态接口返回不可用，设置行自动隐藏。
+- **为什么不做成托盘菜单项**：DSH 的托盘菜单由 Electron 主进程的 `lib/main.js` 直接构建（`DesktopTray`），插件运行在独立的 Host 子进程里，官方没有提供托盘扩展点；因此本组件只能在设置页提供等价入口。
 
 ## 安装
 
@@ -94,6 +103,12 @@ pnpm add dsh-mcviseron-plugin
     rejectMissingActive: false
     sourceKind: auto
     maxListItems: 6
+
+- id: mcviseron-restart
+  name: dsh-mcviseron-plugin/restart
+  config:
+    enabled: true
+    appPath: ""
 ```
 
 ### `mcviseron-appearance`
@@ -133,11 +148,18 @@ pnpm add dsh-mcviseron-plugin
 | `translateTodoContent` | boolean | `true` | notice 中的英文 todo 标题翻译为「中文（English）」显示 |
 | `todoTranslationTimeoutMs` | number | `3000` | 单次批量 todo 翻译超时，500–15000 |
 
+### `mcviseron-restart`
+
+| 字段 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `enabled` | boolean | `true` | 是否注册设置页重启按钮与接口 |
+| `appPath` | string | `''` | 显式指定应用 exe；空 = 从 Host 进程推导 |
+
 ## 工作原理
 
-### 三个 bundle 条目
+### 四个 bundle 条目
 
-`cordis.patch.yml` 插入三条 loader 条目，分别指向本包的三个子路径导出：
+`cordis.patch.yml` 插入四条 loader 条目，分别指向本包的三个子路径导出：
 
 ```yaml
 - id: mcviseron-appearance
@@ -146,6 +168,8 @@ pnpm add dsh-mcviseron-plugin
   name: dsh-mcviseron-plugin/auto-review-fix
 - id: mcviseron-task-guard
   name: dsh-mcviseron-plugin/task-guard
+- id: mcviseron-restart
+  name: dsh-mcviseron-plugin/restart
 ```
 
 每个条目导出自己的 `Config` 与 `apply()`；组件实现仍共享 `src/components/` 与纯逻辑。DSH 插件清单按 loader 条目逐条渲染，因此三个组件分别可见、可启停、可配置。
@@ -174,7 +198,7 @@ DSH 0.2 的官方设置 apiproxy 不向浏览器暴露第三方命名空间，�
 
 | DSH 版本 | 状态 |
 | --- | --- |
-| `0.2.1-rc.2` | ✅ 本版本验证（desktop profile；62 项测试 + 真实 Cordis 上下文） |
+| `0.2.1-rc.2` | ✅ 本版本验证（desktop profile；70 项测试 + 真实 Cordis 上下文） |
 | `0.2.0-rc.x` | ✅ peer 范围覆盖（同一套设置、审批与 hook 接缝） |
 | `0.1.x` | ❌ 不支持：0.1 的插件自行注册设置命名空间，与本插件的条目 id 命名空间模型不同 |
 
@@ -207,6 +231,7 @@ src/
   appearance/index.ts           外观条目：Config + 设置桥
   auto-review/index.ts          Auto review 条目：Config + 装配
   task-guard/index.ts           Todo 守卫条目：Config + 装配
+  restart/index.ts              重启条目：Config + 重启接口
   components/
     auto-review/index.ts        关机预设守卫 + 审批译文
     auto-review/translate.ts    展示翻译（取词、缓存、超时、清洗）
@@ -233,7 +258,7 @@ test/
 
 ```bash
 pnpm install
-pnpm check     # typecheck + 62 项测试 + 构建
+pnpm check     # typecheck + 70 项测试 + 构建
 ```
 
 构建产物：`lib/appearance.js`、`lib/auto-review.js`、`lib/task-guard.js`（Host ESM）与 `lib/client.js`（浏览器模块）。`lib/` 不入库。

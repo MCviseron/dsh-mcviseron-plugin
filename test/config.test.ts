@@ -8,6 +8,7 @@ import test from 'node:test'
 import { Config as AppearanceConfig } from '../src/appearance/index.ts'
 import { Config as AutoReviewConfig } from '../src/auto-review-fix/index.ts'
 import { Config as TaskGuardConfig } from '../src/task-guard/index.ts'
+import { Config as RestartConfig } from '../src/restart/index.ts'
 
 type VolatileLike = { get: () => unknown }
 
@@ -105,4 +106,10 @@ test('the shipped three-entry profile config validates unchanged', () => {
     maxListItems: 6,
   })
   assert.equal(taskGuard.exclude.join(','), 'todo_write,ask_user_question')
+})
+
+test('restart defaults and path validation', () => {
+  assert.deepEqual(resolve(RestartConfig, {}), { enabled: true, appPath: '' })
+  assert.equal(resolve(RestartConfig, { enabled: false }).enabled, false)
+  assert.equal(resolve(RestartConfig, { appPath: 'D:/app.exe' }).appPath, 'D:/app.exe')
 })

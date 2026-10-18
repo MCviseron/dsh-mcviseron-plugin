@@ -9,6 +9,17 @@ const trackOff = 'var(--dsw-alias-bg-layer-3, rgba(0, 0, 0, 0.16))'
 const accent = 'var(--dsw-alias-state-business-primary, #4176e6)'
 const thumb = 'var(--dsw-alias-switch-thumb, #ffffff)'
 
+const buttonShape: CSSProperties = {
+  padding: '4px 14px',
+  border: '1px solid ' + borderL2,
+  borderRadius: 6,
+  background: fieldFill,
+  color: labelPrimary,
+  fontSize: 12,
+  fontFamily: 'inherit',
+  cursor: 'pointer',
+}
+
 const thumbShape: CSSProperties = {
   position: 'absolute',
   top: 2,
@@ -91,6 +102,8 @@ export const styles = {
     fontSize: 12,
     color: labelTertiary,
   } satisfies CSSProperties,
+  button: buttonShape,
+  buttonDisabled: { ...buttonShape, opacity: 0.6, cursor: 'default' } satisfies CSSProperties,
   switchOff: {
     position: 'relative',
     width: 36,

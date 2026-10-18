@@ -10,7 +10,7 @@ pnpm install
 pnpm check
 ```
 
-`pnpm check` 依次执行 `tsc --noEmit`、全部 `node --experimental-strip-types test/*.test.ts`（62 项）与 `node build.mjs`。
+`pnpm check` 依次执行 `tsc --noEmit`、全部 `node --experimental-strip-types test/*.test.ts`（70 项）与 `node build.mjs`。
 
 ## 代码约定
 

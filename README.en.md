@@ -11,6 +11,7 @@ MCviseron's **master plugin for DeepSeek Harness (DSH)**: one npm package hostin
 | **Appearance · light/dark by time** | `mcviseron-appearance` | `dsh-mcviseron-plugin/appearance` | Adds a settings row below DSH's Appearance row and switches the palette from the local wall clock |
 | **Auto-review hardening** | `mcviseron-auto-review-fix` | `dsh-mcviseron-plugin/auto-review-fix` | Stops the whole-Host shutdown from persisting Full access over an Auto session; appends a Chinese translation to the manual-approval prompt without editing the audited text |
 | **Todo plan guard** | `mcviseron-task-guard` | `dsh-mcviseron-plugin/task-guard` | Advisory notices (optional hard stop) when multi-stage work stops updating its todo plan |
+| **Restart DeepSeek Harness** | `mcviseron-restart` | `dsh-mcviseron-plugin/restart` | Settings row that closes and relaunches the desktop application |
 
 > 0.2.0 packed all three components into a single `mcviseron` entry, so the plugin manager showed only one component. Since 0.3.0 they are three entries and can be enabled/configured independently.
 
@@ -37,6 +38,14 @@ MCviseron's **master plugin for DeepSeek Harness (DSH)**: one npm package hostin
 - Source kind follows the session format: v4 uses `plugin:task-guard`, v3 uses `plugin` + `plugin: 'task-guard'`.
 - **Step-intent detection** (`detectStepIntent`): watches the official `agent/assistant-stream` text/reasoning deltas for phrases such as "Now I will …" / "接下来我会 …" and matches them against pending todos. A match adds one targeted, advisory notice per step (with a ready-to-send `todo_write` JSON); a miss, a missing stream, or malformed data is silently skipped and never blocks the task.
 - **Chinese todo display** (`translateTodoContent`): English todo titles in notices are batch-translated into "中文（English）" through the host `llm` service (cached per title, 3 s default timeout, original text on failure). Display only — the model's stored todo list is never rewritten.
+
+### 4. Restart DeepSeek Harness
+
+- A Settings → General row asks for confirmation and restarts the desktop app.
+- A detached PowerShell helper closes the Electron main process; the Host performs its normal graceful shutdown when its IPC channel disconnects; the helper waits for both processes, clears `ELECTRON_RUN_AS_NODE`, and starts the application again.
+- Running tasks are interrupted (same warning as the tray Quit); plugins, settings, and session records are not modified.
+- Desktop-only: under `dsh web` the status route reports unavailable and the row hides.
+- **Why not a tray item**: DSH builds its tray menu inside the Electron main process (`DesktopTray` in `lib/main.js`); plugins run in the Host child process and DSH exposes no tray extension point. The Settings row is the supported equivalent.
 
 ## Install
 
@@ -90,7 +99,7 @@ Defaults: appearance off / `08:00–23:00`; auto-review both guards on, 6 s, 400
 
 | DSH version | Status |
 | --- | --- |
-| `0.2.1-rc.2` | ✅ verified (desktop profile; 62 tests + real Cordis contexts) |
+| `0.2.1-rc.2` | ✅ verified (desktop profile; 70 tests + real Cordis contexts) |
 | `0.2.0-rc.x` | ✅ covered by the peer range |
 | `0.1.x` | ❌ unsupported (different settings-namespace model) |
 

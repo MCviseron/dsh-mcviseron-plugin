@@ -15,6 +15,14 @@ export const zh = {
   'status.saving': '保存中…',
   'status.saved': '已保存',
   'status.failed': '保存失败，请重试',
+  'restart.title': '重启 DeepSeek Harness',
+  'restart.description': '关闭并重新启动桌面应用；正在运行的任务会被中断',
+  'restart.button': '重启',
+  'restart.checking': '正在检查桌面环境…',
+  'restart.ready': '仅重启应用，不会修改插件或配置',
+  'restart.restarting': '正在重启…窗口会短暂关闭',
+  'restart.failed': '重启失败，请重试',
+  'restart.confirm': '确定要重启 DeepSeek Harness 吗？正在运行的任务会被中断。',
 } as const
 
 export const en = {
@@ -34,6 +42,14 @@ export const en = {
   'status.saving': 'Saving…',
   'status.saved': 'Saved',
   'status.failed': 'Save failed — try again',
+  'restart.title': 'Restart DeepSeek Harness',
+  'restart.description': 'Closes and relaunches the desktop application; running tasks are interrupted',
+  'restart.button': 'Restart',
+  'restart.checking': 'Checking the desktop environment…',
+  'restart.ready': 'Only the app restarts; plugins and settings are untouched',
+  'restart.restarting': 'Restarting… the window will close briefly',
+  'restart.failed': 'Restart failed — try again',
+  'restart.confirm': 'Restart DeepSeek Harness now? Running tasks will be interrupted.',
 } satisfies Record<keyof typeof zh, string>
 
 export type McviseronKey = keyof typeof zh

@@ -25,6 +25,13 @@
 - 设置值始终经过 `normalizeScheduleConfig` 归一化，畸形值回退默认，不会把任意值写入 DSH 设置。
 - `mcviseron-auto-review-fix` 与 `mcviseron-task-guard` 的配置不经过浏览器接口，只由 profile 配置（本地文件）维护。
 
+### 重启接口
+
+- 重启组件只注册两条 loopback 接口（`/api/dsh-mcviseron/restart/status|execute`），同样执行 loopback 地址 + Host 头 + 同源校验。
+- `execute` 要求 JSON 体 `{ confirm: true }`，并做 5 秒防重；没有确认、跨站或非 loopback 请求一律拒绝。
+- 重启会强制关闭 Electron 主进程并重新启动应用，会中断正在运行的任务；`appPath` 只接受显式配置的本地可执行文件路径，插件不会下载或执行远程内容。
+- 助手脚本写入系统临时目录并在启动应用后删除；不读取凭据，不访问网络。
+
 ### 进程内包装
 
 - Auto review 组件包装 `permissionPresets.set` 与 `approval.request`，只读转发、只追加展示文本；不改变审批决策、不改变预设语义（关机守卫只在根 fiber 非 ACTIVE 时丢弃写入）。

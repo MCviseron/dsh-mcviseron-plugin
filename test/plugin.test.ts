@@ -10,6 +10,7 @@ import { Context } from '@deepseek-ai/cordis'
 import * as appearance from '../src/appearance/index.ts'
 import * as autoReview from '../src/auto-review-fix/index.ts'
 import * as taskGuard from '../src/task-guard/index.ts'
+import * as restart from '../src/restart/index.ts'
 import { MCVISERON_SETTINGS_NAMESPACE } from '../src/namespace.ts'
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 30))
@@ -49,16 +50,19 @@ async function load(h: Harness): Promise<unknown> {
   fibers.push(await (h.root.plugin as any)(appearance, { enabled: true, lightStart: '08:00', lightEnd: '23:00' }))
   fibers.push(await (h.root.plugin as any)(autoReview, { translateApprovalReason: true, keepPresetGuard: true }))
   fibers.push(await (h.root.plugin as any)(taskGuard, { locale: 'en', staleAfterCalls: 1 }))
+  fibers.push(await (h.root.plugin as any)(restart, { enabled: true }))
   await settle()
   return { dispose: async () => { for (const fiber of fibers.reverse()) await (fiber as any).dispose() } }
 }
 
-test('the three bundle entries install all components into one context', async () => {
+test('the four bundle entries install all components into one context', async () => {
   const h = harness()
   const bundle = await load(h) as { dispose: () => Promise<void> }
   try {
     // Appearance: the loopback bridge is registered on the Host web server.
     assert.deepEqual(h.routes.map(route => route.path).sort(), [
+      '/api/dsh-mcviseron/restart/execute',
+      '/api/dsh-mcviseron/restart/status',
       '/api/dsh-mcviseron/settings/describe',
       '/api/dsh-mcviseron/settings/mutate',
     ])
@@ -98,12 +102,12 @@ test('each entry also loads with no config at all', async () => {
   const h = harness()
   const fibers: any[] = []
   try {
-    for (const component of [appearance, autoReview, taskGuard]) {
+    for (const component of [appearance, autoReview, taskGuard, restart]) {
       fibers.push(await (h.root.plugin as any)(component))
     }
     await settle()
     assert.equal(h.root.fiber.state, 2)
-    assert.equal(h.routes.length, 2)
+    assert.equal(h.routes.length, 4)
   } finally {
     for (const fiber of fibers.reverse()) await (fiber as any).dispose()
   }

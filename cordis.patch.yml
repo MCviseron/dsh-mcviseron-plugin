@@ -3,6 +3,7 @@
 #   - appearance     (time-based light/dark; settings row + loopback bridge)
 #   - auto-review-fix (shutdown preset guard + Chinese approval translation)
 #   - task-guard     (todo plan notices)
+#   - restart        (Settings restart row; desktop app relaunch helper)
 # Entry ids double as the DSH >= 0.2 settings namespaces.
 - insert:
     - id: mcviseron-appearance
@@ -11,3 +12,5 @@
       name: 'dsh-mcviseron-plugin/auto-review-fix'
     - id: mcviseron-task-guard
       name: 'dsh-mcviseron-plugin/task-guard'
+    - id: mcviseron-restart
+      name: 'dsh-mcviseron-plugin/restart'

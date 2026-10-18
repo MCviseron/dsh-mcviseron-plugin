@@ -9,6 +9,8 @@
 | 外观 · 按时间切换 | `mcviseron-appearance` | `dsh-mcviseron-plugin/appearance` |
 | Auto review 修复 | `mcviseron-auto-review-fix` | `dsh-mcviseron-plugin/auto-review-fix` |
 | Todo 计划守卫 | `mcviseron-task-guard` | `dsh-mcviseron-plugin/task-guard` |
+| 重启 DeepSeek Harness | `mcviseron-restart` | `dsh-mcviseron-plugin/restart` |
+| 重启 DeepSeek Harness | `mcviseron-restart` | `dsh-mcviseron-plugin/restart` |
 
 ## 1. 从两个独立插件迁移
 

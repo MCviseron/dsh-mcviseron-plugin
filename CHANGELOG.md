@@ -18,6 +18,23 @@
 - 设置行支持「立即测试」预览按钮。
 - 为 `autoReview` / `taskGuard` 提供可视化设置页（当前通过 profile 配置维护）。
 
+## [0.5.0] - 2026-10-18
+
+### Added
+
+- **重启组件 `mcviseron-restart`（`dsh-mcviseron-plugin/restart`）**：
+  - 「设置 → 通用」新增「重启 DeepSeek Harness」行，确认后重启桌面应用。
+  - Host 两条 loopback 接口：`POST /api/dsh-mcviseron/restart/status` 与 `/restart/execute`（要求 `{ confirm: true }`、5 秒防重、loopback + 同源栅栏）。
+  - 重启由 detached PowerShell 助手完成：先关闭 Electron 主进程，Host 在 IPC 断开后按官方流程优雅关闭；助手等待主进程与 Host 退出，清除 `ELECTRON_RUN_AS_NODE`（Host 继承了该变量），再启动应用。
+  - 仅桌面版可用；`dsh web` 下状态接口返回不可用，设置行自动隐藏。`appPath` 可显式覆盖应用路径。
+  - 会中断正在运行的任务（与托盘「退出」提示一致），不修改插件、配置或会话记录。
+- 新增 `test/restart.test.ts`（7 项）与重启 Config 测试。
+
+### Notes
+
+- DSH 的托盘菜单由 Electron 主进程的 `lib/main.js` 直接构建（`DesktopTray`），插件运行在独立的 Host 子进程，官方没有提供托盘扩展点，因此以设置行提供等价重启入口；未修改应用文件。
+- 合计 **70 项测试**全部通过。
+
 ## [0.4.1] - 2026-10-18
 
 ### Fixed

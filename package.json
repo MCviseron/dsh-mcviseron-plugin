@@ -1,6 +1,6 @@
 {
   "name": "dsh-mcviseron-plugin",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "DeepSeek Harness (DSH) master plugin — one package hosting MCviseron's DSH components as separate bundle entries: a time-based light/dark Appearance schedule, an Auto-review fix (shutdown preset guard + Chinese approval-reason translation), and a todo plan guard that keeps multi-stage work advancing.",
   "license": "Apache-2.0",
   "author": {
@@ -47,7 +47,8 @@
     "./task-guard": "./lib/task-guard.js",
     "./client": "./lib/client.js",
     "./cordis.patch.yml": "./cordis.patch.yml",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./restart": "./lib/restart.js"
   },
   "files": [
     "lib",
@@ -77,7 +78,7 @@
   "scripts": {
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types test/schedule.test.ts && node --experimental-strip-types test/routes.test.ts && node --experimental-strip-types test/config.test.ts && node --experimental-strip-types test/auto-review-fix.test.ts && node --experimental-strip-types test/auto-review-fix-cordis.test.ts && node --experimental-strip-types test/task-guard.test.ts && node --experimental-strip-types test/task-guard-cordis.test.ts && node --experimental-strip-types test/plugin.test.ts",
+    "test": "node --experimental-strip-types test/schedule.test.ts && node --experimental-strip-types test/routes.test.ts && node --experimental-strip-types test/config.test.ts && node --experimental-strip-types test/auto-review-fix.test.ts && node --experimental-strip-types test/auto-review-fix-cordis.test.ts && node --experimental-strip-types test/task-guard.test.ts && node --experimental-strip-types test/task-guard-cordis.test.ts && node --experimental-strip-types test/restart.test.ts && node --experimental-strip-types test/plugin.test.ts",
     "check": "pnpm typecheck && pnpm test && pnpm build",
     "prepare": "pnpm build",
     "prepublishOnly": "pnpm check",
