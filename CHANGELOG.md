@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### 发布准备
+
+- 包名 `dsh-mcviseron-plugin` 在 npmjs 可用（404）；`publishConfig` 指向 `https://registry.npmjs.org/`，`prepublishOnly` 执行 `pnpm check`。
+- 新增 `.github/workflows/publish.yml`：tag 触发、校验 tag 与版本、检查 tarball、OIDC Trusted Publishing + provenance，`NPM_PUBLISH_ENABLED` 作为总开关。
+- 新增 [docs/release.md](docs/release.md)：账号解冻（2026-10-20 11:55 北京时间）后的首次手动发布步骤、OTP / granular token、staged publishing、Trusted Publisher 配置与镜像同步。
+- 两个旧仓库（`dsh-auto-review-restart-fix`、`dsh-task-guard`）的历史已清空，仅保留指向本仓库的废弃说明。
+
 ### 计划中
 
 - 总插件的后续组件（待定）：组件开关面板、统一的语言/入口注册，以及与更多 DSH 外观 token 的联动。

@@ -1,0 +1,113 @@
+# Publish dsh-mcviseron-plugin to npm.
+#
+# Preferred authentication: npm trusted publishing (OIDC). No token, no OTP,
+# and npm signs a provenance attestation linking the tarball to this repo and
+# workflow. One-time setup on npmjs.com AFTER the first manual publish:
+#   package -> Settings -> Trusted Publisher -> GitHub Actions
+#   Organization/user : MCviseron
+#   Repository        : dsh-mcviseron-plugin
+#   Workflow filename : publish.yml
+#   Environment       : (leave empty)
+#   Allow npm publish : checked
+#   Allow npm dist-tag: checked
+#
+# The package must already exist on npm before a trusted publisher can be
+# configured, so the first release is published manually (see
+# docs/release.md). Every release after that can come from this workflow.
+#
+# Until that first manual publish is done, keep the repository variable
+# NPM_PUBLISH_ENABLED (Settings -> Actions -> Variables) false/absent. The
+# workflow still runs checks and packs on a tag, but skips the upload and
+# reports a notice. Set it to true after the first manual publish and the
+# Trusted Publisher configuration.
+#
+# Fallback: repository secret NPM_TOKEN with a granular access token that has
+# "bypass 2FA" enabled. Prefer OIDC.
+name: publish
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Package only, do not publish'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write # OIDC: trusted publishing + provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reads packageManager (pnpm@10.6.3) from package.json; do not also pass
+      # an explicit version here, or pnpm/action-setup fails with a conflict.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      # Trusted publishing and staged publishing need a recent npm. Node 24
+      # already ships npm 11.x; installing latest keeps the workflow aligned
+      # with the current npm release process.
+      - name: Use a recent npm
+        run: npm install -g npm@latest && npm --version
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: The git tag must match package.json
+        run: |
+          node -e "
+            const v = require('./package.json').version;
+            const tag = process.env.GITHUB_REF_NAME ?? '';
+            if (tag.startsWith('v') && tag.slice(1) !== v) {
+              console.error('tag ' + tag + ' does not match package.json ' + v);
+              process.exit(1);
+            }
+            console.log('version ' + v + ' (tag ' + (tag || 'none') + ')');
+          "
+
+      - name: Verify tarball contents
+        run: |
+          npm pack --dry-run 2>&1 | tee /tmp/pack.txt
+          for f in lib/appearance.js lib/auto-review-fix.js lib/task-guard.js lib/client.js cordis.patch.yml package.json README.md LICENSE; do
+            if ! grep -qF "$f" /tmp/pack.txt; then
+              echo "::error::tarball is missing $f"
+              exit 1
+            fi
+          done
+          grep -E "npm notice .*(lib/|cordis.patch.yml|package.json|README.md|LICENSE)" /tmp/pack.txt
+
+      - name: Pack only (dry run)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run }}
+        run: npm pack --dry-run
+
+      - name: Publish disabled
+        if: ${{ (github.event_name == 'push' || !inputs.dry-run) && vars.NPM_PUBLISH_ENABLED != 'true' }}
+        run: |
+          echo "::notice::Publish skipped: set repository variable NPM_PUBLISH_ENABLED=true after the first manual publish and Trusted Publisher setup."
+
+      - name: Publish
+        if: ${{ (github.event_name == 'push' || !inputs.dry-run) && vars.NPM_PUBLISH_ENABLED == 'true' }}
+        run: npm publish --access public --provenance
+        # No NODE_AUTH_TOKEN here on purpose: npm authenticates with the OIDC
+        # token above. An empty NODE_AUTH_TOKEN would be sent as a bearer token
+        # and break the exchange. To use a granular token instead, add:
+        #   env: { NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} }
