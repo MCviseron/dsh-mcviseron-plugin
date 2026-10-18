@@ -1,7 +1,7 @@
 {
   "name": "dsh-mcviseron-plugin",
-  "version": "0.1.0",
-  "description": "DeepSeek Harness (DSH) master plugin — one entry that hosts MCviseron's DSH components. First component: an Appearance option that switches light/dark by local wall-clock time (default light 08:00–23:00, dark otherwise) with a customizable window.",
+  "version": "0.2.0",
+  "description": "DeepSeek Harness (DSH) master plugin — one entry hosting MCviseron's DSH components: a time-based light/dark Appearance schedule, an Auto-review shutdown guard with Chinese approval-reason translation, and a todo plan guard that keeps multi-stage work advancing.",
   "license": "Apache-2.0",
   "author": {
     "name": "MCviseron",
@@ -25,7 +25,10 @@
     "appearance",
     "light",
     "dark",
-    "schedule"
+    "schedule",
+    "auto-review",
+    "approval",
+    "todo"
   ],
   "packageManager": "pnpm@10.6.3",
   "engines": {
@@ -45,6 +48,7 @@
   "files": [
     "lib",
     "src",
+    "docs",
     "cordis.patch.yml",
     "README.md",
     "README.en.md",
@@ -68,7 +72,7 @@
   "scripts": {
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types test/schedule.test.ts && node --experimental-strip-types test/routes.test.ts",
+    "test": "node --experimental-strip-types test/schedule.test.ts && node --experimental-strip-types test/routes.test.ts && node --experimental-strip-types test/config.test.ts && node --experimental-strip-types test/auto-review.test.ts && node --experimental-strip-types test/auto-review-cordis.test.ts && node --experimental-strip-types test/task-guard.test.ts && node --experimental-strip-types test/task-guard-cordis.test.ts && node --experimental-strip-types test/plugin.test.ts",
     "check": "pnpm typecheck && pnpm test && pnpm build",
     "prepare": "pnpm build"
   },
@@ -87,15 +91,33 @@
     "react-dom": "^18.2.0"
   },
   "peerDependenciesMeta": {
-    "@deepseek-ai/cordis": { "optional": true },
-    "@deepseek-ai/dsh-client-connection": { "optional": true },
-    "@deepseek-ai/dsh-client-locale": { "optional": true },
-    "@deepseek-ai/dsh-client-ui-settings": { "optional": true },
-    "@deepseek-ai/dsh-client-ui-slots": { "optional": true },
-    "@deepseek-ai/dsh-host-webserver": { "optional": true },
-    "@deepseek-ai/dsh-settings": { "optional": true },
-    "react": { "optional": true },
-    "react-dom": { "optional": true }
+    "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-connection": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-locale": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-settings": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-slots": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-host-webserver": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-settings": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/node": "^22.20.0",

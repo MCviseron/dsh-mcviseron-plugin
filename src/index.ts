@@ -1,7 +1,9 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-settings'
-import { Config, type McviseronConfig } from './config.ts'
+import { componentConfigs, Config, type McviseronConfig } from './config.ts'
+import { installAutoReview } from './components/auto-review/index.ts'
+import { installTaskGuard, type TaskGuardConfig } from './components/task-guard/index.ts'
 import { makeSettingsRoutes, type SettingsBridge } from './routes.ts'
 
 export { Config } from './config.ts'
@@ -20,22 +22,23 @@ export const inject = ['webServer']
 /**
  * Host half of the master plugin.
  *
- * The appearance schedule itself runs in the browser (theme state is a
- * browser concern), so the Host only contributes two things:
+ * Three components share one profile entry (`mcviseron`), one settings
+ * namespace, and one lifecycle:
  *
- * 1. the profile-entry Config, which IS this plugin's settings namespace on
- *    DSH >= 0.2 and therefore the durable store for `enabled`,
- *    `lightStart`, and `lightEnd`;
- * 2. the narrow loopback bridge the Appearance row writes through, because
- *    the official settings apiproxy does not expose third-party namespaces.
+ * - **appearance** — no Host work; the browser half drives the theme and the
+ *   loopback bridge persists `appearance.*`.
+ * - **auto-review** — wraps `permissionPresets.set` during whole-Host shutdown
+ *   and appends a Chinese translation to the manual-approval prompt.
+ * - **task-guard** — observes the todo plan and attaches advisory notices.
  *
- * The auto-generated settings page is switched off: the Appearance row is the
- * shipped surface for this component (and the only place that can live-update
- * the running driver).
  * @param ctx - Host plugin context.
- * @param _config - resolved profile-entry config (the browser reads it live).
+ * @param config - resolved profile-entry config.
  */
-export function apply(ctx: Context, _config?: McviseronConfig): void {
+export function apply(ctx: Context, config?: McviseronConfig): void {
+  const groups = componentConfigs(config)
+  installAutoReview(ctx, groups.autoReview)
+  installTaskGuard(ctx, groups.taskGuard as TaskGuardConfig | undefined)
+
   ctx.inject(['settings'], (sctx) => {
     const settings = sctx.settings as unknown as SettingsFormsFace
     if (typeof settings.configure === 'function') {

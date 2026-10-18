@@ -4,8 +4,8 @@
  * `node --experimental-strip-types test/routes.test.ts`
  *
  * The fake request is a real async iterable (the handler streams the body), so
- * the body-size, JSON, and method/fence checks run against the same code the
- * Host web server calls.
+ * the body-size, JSON, method/fence checks and the nested-path guard run
+ * against the same code the Host web server calls.
  */
 import assert from 'node:assert/strict'
 import { Readable } from 'node:stream'
@@ -16,17 +16,23 @@ import { MCVISERON_API } from '../src/api.ts'
 class FakeSettings implements SettingsBridge {
   writable = true
   revision = 3
-  value: Record<string, unknown> = { enabled: true, lightStart: '08:00', lightEnd: '23:00' }
+  value: Record<string, unknown> = {
+    appearance: { enabled: true, lightStart: '08:00', lightEnd: '23:00' },
+    autoReview: { keepPresetGuard: true },
+    taskGuard: { enabled: true },
+  }
 
   describe(): SettingsBridgeView[] {
-    return [{ ns: 'mcviseron', value: { ...this.value }, revision: this.revision }]
+    return [{ ns: 'mcviseron', value: structuredClone(this.value), revision: this.revision }]
   }
 
   async mutate(ns: string, ops: readonly { op: 'set' | 'unset'; path: readonly string[]; value?: unknown }[]): Promise<void> {
     assert.equal(ns, 'mcviseron')
     for (const op of ops) {
-      if (op.op === 'set') this.value[op.path[0]!] = op.value
-      else delete this.value[op.path[0]!]
+      const [group, field] = op.path
+      const bucket = this.value[group as string] as Record<string, unknown>
+      if (op.op === 'set') bucket[field as string] = op.value
+      else delete bucket[field as string]
     }
     this.revision += 1
   }
@@ -77,9 +83,13 @@ function route(path: string, settings: SettingsBridge) {
   return found!
 }
 
-test('describe returns the normalized mcviseron namespace', async () => {
+test('describe returns only the normalized appearance group', async () => {
   const settings = new FakeSettings()
-  settings.value = { enabled: 'yes', lightStart: '09:15', lightEnd: 'nope', extra: 1 }
+  settings.value = {
+    appearance: { enabled: 'yes', lightStart: '09:15', lightEnd: 'nope', extra: 1 },
+    autoReview: { secret: 'not exposed' },
+    taskGuard: { enabled: true },
+  }
   const response = await call(route(MCVISERON_API.describe, settings), makeRequest({}))
   assert.equal(response.status, 200)
   assert.equal(response.body.ok, true)
@@ -87,42 +97,47 @@ test('describe returns the normalized mcviseron namespace', async () => {
   assert.equal(value.writable, true)
   assert.deepEqual(value.namespaces[0], {
     ns: 'mcviseron',
-    value: { enabled: false, lightStart: '09:15', lightEnd: '23:00' },
+    value: { appearance: { enabled: false, lightStart: '09:15', lightEnd: '23:00' } },
     revision: 3,
   })
 })
 
-test('mutate writes the three fields and returns the persisted view', async () => {
+test('mutate writes the appearance fields and returns the persisted view', async () => {
   const settings = new FakeSettings()
   const response = await call(route(MCVISERON_API.mutate, settings), makeRequest({
     ns: 'mcviseron',
     ops: [
-      { op: 'set', path: ['enabled'], value: false },
-      { op: 'set', path: ['lightStart'], value: '08:30' },
-      { op: 'set', path: ['lightEnd'], value: '22:30' },
+      { op: 'set', path: ['appearance', 'enabled'], value: false },
+      { op: 'set', path: ['appearance', 'lightStart'], value: '08:30' },
+      { op: 'set', path: ['appearance', 'lightEnd'], value: '22:30' },
     ],
   }))
   assert.equal(response.status, 200)
   assert.equal(response.body.ok, true)
-  const view = response.body.value as { ns: string; value: Record<string, unknown> }
+  const view = response.body.value as { ns: string; value: { appearance: Record<string, unknown> } }
   assert.equal(view.ns, 'mcviseron')
-  assert.deepEqual(view.value, { enabled: false, lightStart: '08:30', lightEnd: '22:30' })
+  assert.deepEqual(view.value.appearance, { enabled: false, lightStart: '08:30', lightEnd: '22:30' })
+  assert.deepEqual((settings.value.appearance as Record<string, unknown>).lightStart, '08:30')
   assert.equal(settings.revision, 4)
 })
 
-test('mutate rejects an unknown namespace or field', async () => {
+test('mutate rejects an unknown namespace, group, or field', async () => {
   const settings = new FakeSettings()
-  const wrongNs = await call(route(MCVISERON_API.mutate, settings), makeRequest({ ns: 'other', ops: [{ op: 'set', path: ['enabled'], value: true }] }))
+  const wrongNs = await call(route(MCVISERON_API.mutate, settings), makeRequest({ ns: 'other', ops: [{ op: 'set', path: ['appearance', 'enabled'], value: true }] }))
   assert.equal(wrongNs.status, 400)
-  const wrongField = await call(route(MCVISERON_API.mutate, settings), makeRequest({ ns: 'mcviseron', ops: [{ op: 'set', path: ['smtpPassword'], value: 'x' }] }))
+  const wrongGroup = await call(route(MCVISERON_API.mutate, settings), makeRequest({ ns: 'mcviseron', ops: [{ op: 'set', path: ['taskGuard', 'enabled'], value: false }] }))
+  assert.equal(wrongGroup.status, 400)
+  const wrongField = await call(route(MCVISERON_API.mutate, settings), makeRequest({ ns: 'mcviseron', ops: [{ op: 'set', path: ['appearance', 'smtpPassword'], value: 'x' }] }))
   assert.equal(wrongField.status, 400)
+  const flat = await call(route(MCVISERON_API.mutate, settings), makeRequest({ ns: 'mcviseron', ops: [{ op: 'set', path: ['enabled'], value: true }] }))
+  assert.equal(flat.status, 400)
 })
 
 test('mutate rejects a malformed time and a non-boolean toggle', async () => {
   const settings = new FakeSettings()
-  const badTime = await call(route(MCVISERON_API.mutate, settings), makeRequest({ ns: 'mcviseron', ops: [{ op: 'set', path: ['lightStart'], value: '25:00' }] }))
+  const badTime = await call(route(MCVISERON_API.mutate, settings), makeRequest({ ns: 'mcviseron', ops: [{ op: 'set', path: ['appearance', 'lightStart'], value: '25:00' }] }))
   assert.equal(badTime.status, 400)
-  const badToggle = await call(route(MCVISERON_API.mutate, settings), makeRequest({ ns: 'mcviseron', ops: [{ op: 'set', path: ['enabled'], value: 'true' }] }))
+  const badToggle = await call(route(MCVISERON_API.mutate, settings), makeRequest({ ns: 'mcviseron', ops: [{ op: 'set', path: ['appearance', 'enabled'], value: 'true' }] }))
   assert.equal(badToggle.status, 400)
 })
 
@@ -130,7 +145,7 @@ test('both routes refuse non-loopback and cross-site callers', async () => {
   const settings = new FakeSettings()
   const describe = route(MCVISERON_API.describe, settings)
   const mutate = route(MCVISERON_API.mutate, settings)
-  const body = { ns: 'mcviseron', ops: [{ op: 'set', path: ['enabled'], value: true }] }
+  const body = { ns: 'mcviseron', ops: [{ op: 'set', path: ['appearance', 'enabled'], value: true }] }
 
   const remote = await call(describe, makeRequest({}, { remoteAddress: '10.0.0.7' }))
   assert.equal(remote.status, 403)
