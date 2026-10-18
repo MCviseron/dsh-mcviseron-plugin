@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict'
 import { Readable } from 'node:stream'
 import test from 'node:test'
-import { makeRestartRoutes, makeRestartScript, RESTART_API, resolveRestartTarget, type RestartTarget } from '../src/restart/index.ts'
+import { deriveDesktopAppPath, makeRestartRoutes, makeRestartScript, RESTART_API, resolveRestartTarget, type RestartTarget } from '../src/restart/index.ts'
 
 const exists = (path: string) => path === 'D:/DeepSeek Harness/DeepSeek Harness.exe'
 
@@ -28,6 +28,13 @@ test('resolveRestartTarget rejects node hosts, missing files, and missing parent
 test('resolveRestartTarget honours an explicit appPath override', () => {
   const target = resolveRestartTarget('C:/node/node.exe', 7, (path) => path === 'D:/Custom/app.exe', ' D:/Custom/app.exe ')
   assert.equal(target?.exePath, 'D:/Custom/app.exe')
+})
+
+test('deriveDesktopAppPath recovers the desktop exe from the runtime directory', () => {
+  const argv = ['C:/node/node.exe', '--expose-internals', 'D:/DeepSeek Harness/resources/app.asar/dsh', 'C:/profile']
+  const app = 'D:\\DeepSeek Harness\\DeepSeek Harness.exe'
+  assert.equal(deriveDesktopAppPath('C:/node/node.exe', argv, (path) => path === app), app)
+  assert.equal(deriveDesktopAppPath('D:/DeepSeek Harness/DeepSeek Harness.exe', argv, () => true), 'D:/DeepSeek Harness/DeepSeek Harness.exe')
 })
 
 test('makeRestartScript closes the main process and clears ELECTRON_RUN_AS_NODE', () => {

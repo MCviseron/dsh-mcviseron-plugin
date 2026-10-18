@@ -11,7 +11,7 @@ MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包承载多�
 | **外观 · 按时间自动切换深浅色** | `mcviseron-appearance` | `dsh-mcviseron-plugin/appearance` | 「设置 → 通用 → 外观」新增选项，按本机时间切换浅/深色 |
 | **Auto review 修复** | `mcviseron-auto-review-fix` | `dsh-mcviseron-plugin/auto-review-fix` | 关机不再把 Auto 会话写成完全访问；人审提示追加中文译文（不改审查原文） |
 | **Todo 计划守卫** | `mcviseron-task-guard` | `dsh-mcviseron-plugin/task-guard` | 多阶段任务忘记更新 todo 时发出 notice（可选硬拦截） |
-| **重启 DeepSeek Harness** | `mcviseron-restart` | `dsh-mcviseron-plugin/restart` | 设置里的重启按钮：关闭并重新启动桌面应用 |
+| **重启 DeepSeek Harness** | `mcviseron-restart` | `dsh-mcviseron-plugin/restart` | 「设置 → MCviseron 插件」里的重启按钮：关闭并重新启动桌面应用 |
 
 > 0.2.0 曾把三个组件放在**一个** `mcviseron` 条目里，插件管理器只显示 1 个「组件」。0.3.0 起拆成三个条目，插件管理器/插件清单会显示 3 个组件，各自可单独启停与配置。
 
@@ -44,11 +44,20 @@ MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包承载多�
 
 ### 4. 重启 DeepSeek Harness
 
-- 在「设置 → 通用」新增一行「重启 DeepSeek Harness」，点击后确认并重启桌面应用。
+- 在「设置 → MCviseron 插件 → 重启」子页提供「重启 DeepSeek Harness」按钮，点击后确认并重启桌面应用。
 - 重启方式：Host 写一个临时 PowerShell 助手（detached），先关闭 Electron 主进程；Host 在 IPC 断开后按官方流程优雅关闭所有插件与会话；助手等待主进程与 Host 退出后，清除 `ELECTRON_RUN_AS_NODE` 并重新启动应用。
 - 会中断正在运行的任务（与托盘「退出」的提示一致），不会修改插件、配置或会话记录。
 - 只在桌面版可用；`dsh web` 下状态接口返回不可用，设置行自动隐藏。
 - **为什么不做成托盘菜单项**：DSH 的托盘菜单由 Electron 主进程的 `lib/main.js` 直接构建（`DesktopTray`），插件运行在独立的 Host 子进程里，官方没有提供托盘扩展点；因此本组件只能在设置页提供等价入口。
+
+## 设置页
+
+设置里新增一个一级分区 **「MCviseron 插件」**（`settings.section`，id `mcviseron`），组件按需在这里拥有子页：
+
+- **重启**：重启 DeepSeek Harness（本组件的设置面）。
+- **组件**：列出四个组件及其配置位置。
+
+外观组件**不在**这里——它的设置行仍留在「通用 → 外观」，位置不变。没有设置面的组件不占用子页；`autoReview` / `taskGuard` 继续通过 profile 配置，组件子页会注明这一点。
 
 ## 安装
 
@@ -198,7 +207,7 @@ DSH 0.2 的官方设置 apiproxy 不向浏览器暴露第三方命名空间，�
 
 | DSH 版本 | 状态 |
 | --- | --- |
-| `0.2.1-rc.2` | ✅ 本版本验证（desktop profile；70 项测试 + 真实 Cordis 上下文） |
+| `0.2.1-rc.2` | ✅ 本版本验证（desktop profile；71 项测试 + 真实 Cordis 上下文） |
 | `0.2.0-rc.x` | ✅ peer 范围覆盖（同一套设置、审批与 hook 接缝） |
 | `0.1.x` | ❌ 不支持：0.1 的插件自行注册设置命名空间，与本插件的条目 id 命名空间模型不同 |
 
@@ -239,6 +248,7 @@ src/
   client/
     index.ts                    浏览器入口（locale + 设置行 + 驱动）
     AppearanceScheduleRow.tsx   外观设置行
+    SettingsSection.tsx         MCviseron 插件设置分区（重启/组件子页）
     driver.ts                   按时切换主题的驱动
     bridge.ts                   设置读写桥客户端
     locales.ts                  中英文案
@@ -258,7 +268,7 @@ test/
 
 ```bash
 pnpm install
-pnpm check     # typecheck + 70 项测试 + 构建
+pnpm check     # typecheck + 71 项测试 + 构建
 ```
 
 构建产物：`lib/appearance.js`、`lib/auto-review.js`、`lib/task-guard.js`（Host ESM）与 `lib/client.js`（浏览器模块）。`lib/` 不入库。

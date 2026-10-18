@@ -4,7 +4,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 import { AppearanceScheduleRow } from './AppearanceScheduleRow.tsx'
-import { RestartRow } from './RestartRow.tsx'
+import { SettingsSection } from './SettingsSection.tsx'
 import { ScheduleDriver, type ThemeFace } from './driver.ts'
 import { en, zh, type McviseronKey } from './locales.ts'
 
@@ -51,10 +51,11 @@ export function apply(ctx: ClientContext): void {
     inject: () => ({ driver }),
   }, AppearanceScheduleRow))
 
-  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
-    name: 'settings.general.item',
-    id: 'mcviseron-restart',
-    order: 13,
+  ctx.slots.inject('settings.section', () => ctx.slots.register({
+    name: 'settings.section',
+    id: 'mcviseron',
+    order: 115,
+    label: () => ctx.locale.bind(NS)('page.title'),
     locale: NS,
-  }, RestartRow))
+  }, SettingsSection))
 }

@@ -18,6 +18,21 @@
 - 设置行支持「立即测试」预览按钮。
 - 为 `autoReview` / `taskGuard` 提供可视化设置页（当前通过 profile 配置维护）。
 
+## [0.6.0] - 2026-10-18
+
+### Added
+
+- **一级设置分区「MCviseron 插件」**（`settings.section`，id `mcviseron`，order 115）：
+  - **重启**子页：重启 DeepSeek Harness（按钮 + 可用状态 + 应用路径 + 确认）。
+  - **组件**子页：列出 appearance / auto-review-fix / task-guard / restart 及各自配置位置。
+- 重启入口从「设置 → 通用」的一行移到本分区；外观组件的设置行**保持原位**，没有移动。
+- 重启目标解析新增回退：当 Host 运行在 `node.exe` 下时，依次尝试 `argv[0]`、由运行时目录推导的应用 exe；同时页面会显示不可用原因（接口未加载 / 仅桌面版）。
+
+### Changed
+
+- 客户端不再向 `settings.general.item` 注册重启行，改为注册 `settings.section`；`RestartRow.tsx` 由 `SettingsSection.tsx` 取代。
+- 版本号 `0.5.0` → `0.6.0`；合计 **71 项测试**。
+
 ## [0.5.0] - 2026-10-18
 
 ### Added

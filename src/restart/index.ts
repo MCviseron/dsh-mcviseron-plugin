@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process'
 import { existsSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { basename, join } from 'node:path'
+import { basename, join, resolve } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ServerResponse } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
@@ -61,13 +61,39 @@ export function resolveRestartTarget(
   parentPid: number,
   exists: (path: string) => boolean,
   override = '',
+  argv: readonly string[] = [],
 ): RestartTarget | undefined {
   if (!Number.isSafeInteger(parentPid) || parentPid <= 0) return undefined
-  const candidate = override.trim() !== '' ? override.trim() : execPath
+  const candidate = override.trim() !== '' ? override.trim() : deriveDesktopAppPath(execPath, argv, exists)
   if (candidate === '' || !exists(candidate)) return undefined
   const name = basename(candidate).toLowerCase()
   if (name === 'node' || name === 'node.exe') return undefined
   return { mainPid: parentPid, hostPid: process.pid, exePath: candidate }
+}
+
+/**
+ * Derive the desktop application executable when the Host itself runs under a
+ * plain node.exe: first `argv[0]`, then the application root recovered from the
+ * runtime directory (`<app>\resources\app.asar\dsh`).
+ *
+ * @param execPath - the Host's `process.execPath`.
+ * @param argv - the Host's `process.argv`.
+ * @param exists - file-existence probe.
+ * @returns the application executable, or the original execPath.
+ */
+export function deriveDesktopAppPath(
+  execPath: string,
+  argv: readonly string[],
+  exists: (path: string) => boolean,
+): string {
+  const isNode = (value: string): boolean => /^node(\.exe)?$/i.test(basename(value))
+  if (!isNode(execPath)) return execPath
+  const argv0 = argv[0] ?? ''
+  if (argv0 !== '' && argv0 !== execPath && !isNode(argv0) && exists(argv0)) return argv0
+  const runtimeDir = argv[2] ?? ''
+  if (runtimeDir === '') return execPath
+  const candidate = join(resolve(runtimeDir, '../../..'), 'DeepSeek Harness.exe')
+  return exists(candidate) ? candidate : execPath
 }
 
 /**
@@ -215,7 +241,7 @@ export const inject = ['webServer']
 export function apply(ctx: Context, config?: RestartConfig): void {
   if (config?.enabled === false) return
   const routes = makeRestartRoutes({
-    target: () => resolveRestartTarget(process.execPath, process.ppid, existsSync, config?.appPath ?? ''),
+    target: () => resolveRestartTarget(process.execPath, process.ppid, existsSync, config?.appPath ?? '', process.argv),
     launch: launchHelper,
   })
   ctx.effect(() => {
