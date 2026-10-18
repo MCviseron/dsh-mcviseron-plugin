@@ -46,6 +46,12 @@ pnpm check
 3. 在 `CHANGELOG.md` 的 `Compatibility` 段落记录验证过的版本与 peer 范围。
 4. 手动验证：插件管理器显示 3 个组件；外观开关与时段、跨午夜窗口、刷新后配置仍在；触发一次 Auto review 被拒看审批卡片译文；跑一个多阶段任务看 todo notice。
 
+## Profile 健康检查
+
+- 本地安装/更新插件优先用 DSH 插件管理器。
+- 在 `~/.dsh/profiles/<profile>` 里手动执行 `pnpm install` 后，务必跑一次 `node scripts/repair-profile.mjs`：pnpm 在 Windows 上会把跨盘符的 `link:D:/...` 依赖写成坏符号链接，并可能让插件管理器把这些条目从 `dsh.profile.bundles` 中移除。
+- 修复脚本是幂等的，可随时运行确认 `link:` 依赖与 bundles 一致。
+
 ## 发布
 
 1. `pnpm check` 全绿。

@@ -238,6 +238,23 @@ pnpm check     # typecheck + 62 项测试 + 构建
 
 构建产物：`lib/appearance.js`、`lib/auto-review.js`、`lib/task-guard.js`（Host ESM）与 `lib/client.js`（浏览器模块）。`lib/` 不入库。
 
+## 故障排查
+
+### 在 profile 里运行 `pnpm install` 后，所有本地插件显示「异常 / 包不可用」
+
+原因：profile 的 `link:D:/...` 依赖跨盘符，pnpm 在 Windows 上可能把符号链接写成坏路径（`<profile>\D:\...`）。DSH 解析不到这些包，插件管理器还会把它们从 `dsh.profile.bundles` 中移除。
+
+修复：
+
+```bash
+node scripts/repair-profile.mjs             # 默认修 ~/.dsh/profiles/desktop
+node scripts/repair-profile.mjs <profile>   # 其他 profile
+```
+
+脚本会把每个 `link:` 依赖重建为绝对 junction，并把缺失的条目补回 `dsh.profile.bundles`，然后重启 DSH 即可。
+
+预防：本地插件尽量用 DSH 插件管理器安装/更新；如果确实要在 profile 里手动 `pnpm install`，安装后执行一次 `pnpm repair-profile` 再重启。
+
 ## 许可
 
 [Apache-2.0](LICENSE)

@@ -105,6 +105,23 @@ pnpm install
 pnpm check
 ```
 
+## Troubleshooting
+
+### After running `pnpm install` in the profile, every local plugin shows "unavailable"
+
+Cause: cross-drive `link:D:/...` dependencies are written by pnpm on Windows as broken relative symlinks (`<profile>\D:\...`). DSH cannot resolve them, and the plugin manager may also drop those entries from `dsh.profile.bundles`.
+
+Fix:
+
+```bash
+node scripts/repair-profile.mjs             # default: ~/.dsh/profiles/desktop
+node scripts/repair-profile.mjs <profile>   # another profile
+```
+
+The script recreates every `link:` dependency as an absolute junction and restores the missing `dsh.profile.bundles` entries; restart DSH afterwards.
+
+Prevention: prefer the DSH plugin manager for local plugins. If you must run `pnpm install` in the profile, run `pnpm repair-profile` right after it and restart.
+
 ## License
 
 [Apache-2.0](LICENSE)

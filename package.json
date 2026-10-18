@@ -1,6 +1,6 @@
 {
   "name": "dsh-mcviseron-plugin",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "DeepSeek Harness (DSH) master plugin — one package hosting MCviseron's DSH components as separate bundle entries: a time-based light/dark Appearance schedule, an Auto-review fix (shutdown preset guard + Chinese approval-reason translation), and a todo plan guard that keeps multi-stage work advancing.",
   "license": "Apache-2.0",
   "author": {
@@ -53,6 +53,7 @@
     "lib",
     "src",
     "docs",
+    "scripts",
     "cordis.patch.yml",
     "README.md",
     "README.en.md",
@@ -79,7 +80,8 @@
     "test": "node --experimental-strip-types test/schedule.test.ts && node --experimental-strip-types test/routes.test.ts && node --experimental-strip-types test/config.test.ts && node --experimental-strip-types test/auto-review-fix.test.ts && node --experimental-strip-types test/auto-review-fix-cordis.test.ts && node --experimental-strip-types test/task-guard.test.ts && node --experimental-strip-types test/task-guard-cordis.test.ts && node --experimental-strip-types test/plugin.test.ts",
     "check": "pnpm typecheck && pnpm test && pnpm build",
     "prepare": "pnpm build",
-    "prepublishOnly": "pnpm check"
+    "prepublishOnly": "pnpm check",
+    "repair-profile": "node scripts/repair-profile.mjs"
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "^3.18.5"

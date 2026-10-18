@@ -18,6 +18,17 @@
 - 设置行支持「立即测试」预览按钮。
 - 为 `autoReview` / `taskGuard` 提供可视化设置页（当前通过 profile 配置维护）。
 
+## [0.4.1] - 2026-10-18
+
+### Fixed
+
+- **profile 里 `pnpm install` 后所有本地插件变成「异常 / 包不可用」**：pnpm 在 Windows 上把跨盘符的 `link:D:/...` 依赖写成坏符号链接（`<profile>\D:\...`），DSH 无法解析；插件管理器还会把这些条目从 `dsh.profile.bundles` 中移除。新增 `scripts/repair-profile.mjs`：把所有 `link:` 依赖重建为绝对 junction，并把缺失条目补回 `dsh.profile.bundles`；脚本幂等，可反复运行。
+- README / README.en 增加「故障排查」、CONTRIBUTING 增加 Profile 健康检查；本机 profile 已用该脚本修复并恢复 `dsh-mcviseron-plugin`、`dsh-eda-mcp`、`dsh-email-notify`、`dsh-edit-file-workspace` 四个条目。
+
+### Changed
+
+- `package.json` 增加 `repair-profile` 脚本，`files` 纳入 `scripts/`；版本 `0.4.0` → `0.4.1`。
+
 ## [0.4.0] - 2026-10-18
 
 ### Added
