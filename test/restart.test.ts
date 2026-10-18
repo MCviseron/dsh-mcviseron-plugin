@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict'
 import { Readable } from 'node:stream'
 import test from 'node:test'
-import { deriveDesktopAppPath, makeRestartRoutes, makeRestartScript, RESTART_API, resolveRestartTarget, type RestartTarget } from '../src/restart/index.ts'
+import { deriveDesktopAppPath, makeRestartRoutes, makeTaskScript, RESTART_API, resolveRestartTarget, type RestartTarget } from '../src/restart/index.ts'
 
 const exists = (path: string) => path === 'D:/DeepSeek Harness/DeepSeek Harness.exe'
 
@@ -30,6 +30,16 @@ test('resolveRestartTarget honours an explicit appPath override', () => {
   assert.equal(target?.exePath, 'D:/Custom/app.exe')
 })
 
+test('resolveRestartTarget is Windows-only', () => {
+  assert.equal(resolveRestartTarget('D:/app.exe', 1, () => true, '', [], 'darwin'), undefined)
+  assert.equal(resolveRestartTarget('D:/app.exe', 1, () => true, '', [], 'linux'), undefined)
+})
+
+test('resolveRestartTarget tolerates a leaked volatile override', () => {
+  const target = resolveRestartTarget('D:/tools/DeepSeek Harness.exe', 1234, () => true, { get: () => '' } as any)
+  assert.deepEqual(target, { mainPid: 1234, hostPid: process.pid, exePath: 'D:/tools/DeepSeek Harness.exe' })
+})
+
 test('deriveDesktopAppPath recovers the desktop exe from the runtime directory', () => {
   const argv = ['C:/node/node.exe', '--expose-internals', 'D:/DeepSeek Harness/resources/app.asar/dsh', 'C:/profile']
   const app = 'D:\\DeepSeek Harness\\DeepSeek Harness.exe'
@@ -37,13 +47,14 @@ test('deriveDesktopAppPath recovers the desktop exe from the runtime directory',
   assert.equal(deriveDesktopAppPath('D:/DeepSeek Harness/DeepSeek Harness.exe', argv, () => true), 'D:/DeepSeek Harness/DeepSeek Harness.exe')
 })
 
-test('makeRestartScript closes the main process and clears ELECTRON_RUN_AS_NODE', () => {
+test('makeTaskScript schedules the application executable directly', () => {
   const target: RestartTarget = { mainPid: 11, hostPid: 22, exePath: 'D:/DeepSeek Harness/DeepSeek Harness.exe' }
-  const script = makeRestartScript(target)
-  assert.match(script, /Stop-Process -Id \$MainPid -Force/)
-  assert.match(script, /Remove-Item Env:ELECTRON_RUN_AS_NODE/)
-  assert.match(script, /Start-Process -FilePath \$Exe/)
-  assert.match(script, /\[int\]\$MainPid/)
+  const script = makeTaskScript(target, 'DSH-MCviseron-Restart', 6)
+  assert.match(script, /New-ScheduledTaskAction -Execute 'D:\/DeepSeek Harness\/DeepSeek Harness\.exe'/)
+  assert.match(script, /-WorkingDirectory 'D:\/DeepSeek Harness'/)
+  assert.match(script, /AddSeconds\(6\)/)
+  assert.match(script, /Register-ScheduledTask/)
+  assert.doesNotMatch(script, /Start-Process/)
 })
 
 interface Captured {

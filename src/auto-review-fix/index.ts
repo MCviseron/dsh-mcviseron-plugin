@@ -8,21 +8,23 @@ import { toPlain } from '../volatile.ts'
  * The whole implementation lives in `components/auto-review`; this entry owns
  * the profile Config so the plugin inventory can list the component on its own.
  */
-export const Config = z.object({
-  keepPresetGuard: z.boolean().default(true).volatile(),
-  translateApprovalReason: z.boolean().default(true).volatile(),
-  translateTimeoutMs: z.number().min(500).max(60000).default(6000).volatile(),
-  translateMaxChars: z.number().min(100).max(20000).default(4000).volatile(),
-  translateProvider: z.string().default('').volatile(),
-  translateModel: z.string().default('').volatile(),
-}).default({
+export const DEFAULT_AUTO_REVIEW_CONFIG = {
   keepPresetGuard: true,
   translateApprovalReason: true,
   translateTimeoutMs: 6000,
   translateMaxChars: 4000,
   translateProvider: '',
   translateModel: '',
-})
+} as const
+
+export const Config = z.object({
+  keepPresetGuard: z.boolean().default(DEFAULT_AUTO_REVIEW_CONFIG.keepPresetGuard).volatile(),
+  translateApprovalReason: z.boolean().default(DEFAULT_AUTO_REVIEW_CONFIG.translateApprovalReason).volatile(),
+  translateTimeoutMs: z.number().min(500).max(60000).default(DEFAULT_AUTO_REVIEW_CONFIG.translateTimeoutMs).volatile(),
+  translateMaxChars: z.number().min(100).max(20000).default(DEFAULT_AUTO_REVIEW_CONFIG.translateMaxChars).volatile(),
+  translateProvider: z.string().default(DEFAULT_AUTO_REVIEW_CONFIG.translateProvider).volatile(),
+  translateModel: z.string().default(DEFAULT_AUTO_REVIEW_CONFIG.translateModel).volatile(),
+}).default(DEFAULT_AUTO_REVIEW_CONFIG)
 
 export interface AutoReviewConfig {
   keepPresetGuard?: boolean

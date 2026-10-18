@@ -6,6 +6,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { Config as AppearanceConfig } from '../src/appearance/index.ts'
+import { Config as MasterConfig } from '../src/index.ts'
 import { Config as AutoReviewConfig } from '../src/auto-review-fix/index.ts'
 import { Config as TaskGuardConfig } from '../src/task-guard/index.ts'
 import { Config as RestartConfig } from '../src/restart/index.ts'
@@ -81,7 +82,32 @@ test('taskGuard defaults keep the component tool filter', () => {
   assert.throws(() => resolve(TaskGuardConfig, { staleAfterCalls: 0 }))
 })
 
-test('the shipped three-entry profile config validates unchanged', () => {
+test('the master entry nests every component config with its defaults', () => {
+  const master = resolve(MasterConfig, {})
+  assert.equal(master.enabled, false)
+  assert.equal(master.lightStart, '08:00')
+  assert.equal(master.lightEnd, '23:00')
+  assert.equal(master.autoReviewFix.keepPresetGuard, true)
+  assert.equal(master.autoReviewFix.translateTimeoutMs, 6000)
+  assert.equal(master.taskGuard.exclude.join(','), 'todo_write,ask_user_question')
+  assert.deepEqual(master.restart, { enabled: true, appPath: '' })
+
+  const overridden = resolve(MasterConfig, {
+    enabled: true,
+    lightStart: '07:30',
+    autoReviewFix: { translateApprovalReason: false },
+    taskGuard: { locale: 'en', staleAfterCalls: 2 },
+    restart: { enabled: false },
+  })
+  assert.equal(overridden.enabled, true)
+  assert.equal(overridden.lightStart, '07:30')
+  assert.equal(overridden.autoReviewFix.translateApprovalReason, false)
+  assert.equal(overridden.autoReviewFix.keepPresetGuard, true)
+  assert.equal(overridden.taskGuard.locale, 'en')
+  assert.equal(overridden.restart.enabled, false)
+})
+
+test('the shipped profile component configs validate unchanged', () => {
   const appearance = resolve(AppearanceConfig, { enabled: true, lightStart: '08:00', lightEnd: '23:00' })
   assert.deepEqual(appearance, { enabled: true, lightStart: '08:00', lightEnd: '23:00' })
 

@@ -1,30 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { McviseronKey } from './locales.ts'
-import { pageStyles, styles } from './styles.ts'
+import { AUTO_REVIEW_FIELDS, ConfigForm, TASK_GUARD_FIELDS } from './ConfigForm.tsx'
+import { RestartCard } from './RestartCard.tsx'
+import { pageStyles } from './styles.ts'
 
-const STATUS = '/api/dsh-mcviseron/restart/status'
-const EXECUTE = '/api/dsh-mcviseron/restart/execute'
-
-type Tab = 'restart' | 'components'
-
-type RestartState =
-  | { kind: 'loading' }
-  | { kind: 'ready'; appPath: string }
-  | { kind: 'unavailable' }
-  | { kind: 'route-missing' }
-  | { kind: 'restarting' }
-  | { kind: 'failed' }
-
-async function post(path: string, body: unknown): Promise<any> {
-  const response = await fetch(path, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  if (response.status === 404) throw new Error('route-missing')
-  if (!response.ok) throw new Error('HTTP ' + response.status)
-  return await response.json()
-}
+type Tab = 'restart' | 'autoReview' | 'taskGuard' | 'components'
 
 /** Props composed by the `settings.section` slot. */
 export interface SettingsSectionProps {
@@ -39,53 +19,6 @@ export interface SettingsSectionProps {
  */
 export function SettingsSection({ t }: SettingsSectionProps) {
   const [tab, setTab] = useState<Tab>('restart')
-  const [restart, setRestart] = useState<RestartState>({ kind: 'loading' })
-
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      try {
-        const body = await post(STATUS, {})
-        if (cancelled) return
-        if (body?.ok === true && body?.available === true) {
-          setRestart({ kind: 'ready', appPath: typeof body.appPath === 'string' ? body.appPath : '' })
-        } else {
-          setRestart({ kind: 'unavailable' })
-        }
-      } catch (error) {
-        if (cancelled) return
-        setRestart({ kind: error instanceof Error && error.message === 'route-missing' ? 'route-missing' : 'unavailable' })
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const startRestart = async (): Promise<void> => {
-    if (!window.confirm(t('page.restart.confirm'))) return
-    setRestart({ kind: 'restarting' })
-    try {
-      const body = await post(EXECUTE, { confirm: true })
-      if (body?.ok !== true) throw new Error('rejected')
-    } catch {
-      setRestart({ kind: 'failed' })
-    }
-  }
-
-  const status = restart.kind === 'ready'
-    ? t('page.restart.ready')
-    : restart.kind === 'route-missing'
-      ? t('page.restart.routeMissing')
-      : restart.kind === 'restarting'
-        ? t('page.restart.restarting')
-        : restart.kind === 'failed'
-          ? t('page.restart.failed')
-          : restart.kind === 'loading'
-            ? t('restart.checking')
-            : t('page.restart.unavailable')
-
-  const canRestart = restart.kind === 'ready' || restart.kind === 'failed'
 
   return (
     <div style={pageStyles.page}>
@@ -104,6 +37,24 @@ export function SettingsSection({ t }: SettingsSectionProps) {
         <button
           type="button"
           role="tab"
+          aria-selected={tab === 'autoReview'}
+          onClick={() => { setTab('autoReview') }}
+          style={tab === 'autoReview' ? { ...pageStyles.tab, ...pageStyles.tabActive } : pageStyles.tab}
+        >
+          {t('page.tab.autoReview')}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'taskGuard'}
+          onClick={() => { setTab('taskGuard') }}
+          style={tab === 'taskGuard' ? { ...pageStyles.tab, ...pageStyles.tabActive } : pageStyles.tab}
+        >
+          {t('page.tab.taskGuard')}
+        </button>
+        <button
+          type="button"
+          role="tab"
           aria-selected={tab === 'components'}
           onClick={() => { setTab('components') }}
           style={tab === 'components' ? { ...pageStyles.tab, ...pageStyles.tabActive } : pageStyles.tab}
@@ -113,28 +64,27 @@ export function SettingsSection({ t }: SettingsSectionProps) {
       </div>
 
       {tab === 'restart'
-        ? (
-          <div style={pageStyles.card}>
-            <div style={pageStyles.cardTitle}>{t('page.restart.title')}</div>
-            <div style={pageStyles.cardBody}>{t('page.restart.description')}</div>
-            <div style={pageStyles.cardStatus}>{status}</div>
-            {restart.kind === 'ready' && restart.appPath !== ''
-              ? <div style={pageStyles.cardStatus}>{t('page.restart.appPath')}: {restart.appPath}</div>
-              : null}
-            <div style={pageStyles.cardActions}>
-              <button
-                type="button"
-                disabled={!canRestart}
-                onClick={() => { void startRestart() }}
-                style={canRestart ? styles.button : styles.buttonDisabled}
-              >
-                {restart.kind === 'restarting' ? t('page.restart.restarting') : t('page.restart.button')}
-              </button>
-            </div>
-          </div>
-        )
-        : (
-          <div style={pageStyles.card}>
+        ? <RestartCard t={t} />
+        : tab === 'autoReview'
+          ? (
+            <ConfigForm
+              t={t}
+              title="page.autoReview.title"
+              description="page.autoReview.description"
+              fields={AUTO_REVIEW_FIELDS}
+            />
+          )
+          : tab === 'taskGuard'
+            ? (
+              <ConfigForm
+                t={t}
+                title="page.taskGuard.title"
+                description="page.taskGuard.description"
+                fields={TASK_GUARD_FIELDS}
+              />
+            )
+            : (
+              <div style={pageStyles.card}>
             <div style={pageStyles.cardTitle}>{t('page.components.title')}</div>
             <div style={pageStyles.componentRow}>
               <span style={pageStyles.componentName}>{t('page.components.appearance')}</span>

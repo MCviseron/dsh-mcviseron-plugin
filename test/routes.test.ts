@@ -22,9 +22,15 @@ class FakeSettings implements SettingsBridge {
   async mutate(ns: string, ops: readonly { op: 'set' | 'unset'; path: readonly string[]; value?: unknown }[]): Promise<void> {
     assert.equal(ns, MCVISERON_SETTINGS_NAMESPACE)
     for (const op of ops) {
-      const field = op.path[0] as string
-      if (op.op === 'set') this.value[field] = op.value
-      else delete this.value[field]
+      let target: Record<string, unknown> = this.value
+      for (const key of op.path.slice(0, -1)) {
+        const next = target[key]
+        if (next === null || typeof next !== 'object' || Array.isArray(next)) target[key] = {}
+        target = target[key] as Record<string, unknown>
+      }
+      const field = op.path[op.path.length - 1] as string
+      if (op.op === 'set') target[field] = op.value
+      else delete target[field]
     }
     this.revision += 1
   }
@@ -85,7 +91,14 @@ test('describe returns the normalized appearance entry', async () => {
   assert.equal(value.writable, true)
   assert.deepEqual(value.namespaces[0], {
     ns: MCVISERON_SETTINGS_NAMESPACE,
-    value: { enabled: false, lightStart: '09:15', lightEnd: '23:00' },
+    value: {
+      enabled: false,
+      lightStart: '09:15',
+      lightEnd: '23:00',
+      autoReviewFix: {},
+      taskGuard: {},
+      restart: {},
+    },
     revision: 3,
   })
 })
@@ -104,7 +117,14 @@ test('mutate writes the appearance fields and returns the persisted view', async
   assert.equal(response.body.ok, true)
   const view = response.body.value as { ns: string; value: Record<string, unknown> }
   assert.equal(view.ns, MCVISERON_SETTINGS_NAMESPACE)
-  assert.deepEqual(view.value, { enabled: false, lightStart: '08:30', lightEnd: '22:30' })
+  assert.deepEqual(view.value, {
+    enabled: false,
+    lightStart: '08:30',
+    lightEnd: '22:30',
+    autoReviewFix: {},
+    taskGuard: {},
+    restart: {},
+  })
   assert.equal(settings.revision, 4)
 })
 
@@ -116,6 +136,42 @@ test('mutate rejects an unknown namespace, field, or nested path', async () => {
   assert.equal(wrongField.status, 400)
   const nested = await call(route(MCVISERON_API.mutate, settings), makeRequest({ ns: MCVISERON_SETTINGS_NAMESPACE, ops: [{ op: 'set', path: ['appearance', 'enabled'], value: true }] }))
   assert.equal(nested.status, 400)
+})
+
+test('mutate accepts nested component config paths and rejects bad values', async () => {
+  const settings = new FakeSettings()
+  settings.value = {
+    enabled: true,
+    lightStart: '08:00',
+    lightEnd: '23:00',
+    autoReviewFix: { translateApprovalReason: true, translateTimeoutMs: 6000 },
+    taskGuard: { enabled: true, locale: 'zh', staleAfterCalls: 5 },
+  }
+  const ok = await call(route(MCVISERON_API.mutate, settings), makeRequest({
+    ns: MCVISERON_SETTINGS_NAMESPACE,
+    ops: [
+      { op: 'set', path: ['autoReviewFix', 'translateApprovalReason'], value: false },
+      { op: 'set', path: ['taskGuard', 'locale'], value: 'en' },
+      { op: 'set', path: ['taskGuard', 'staleAfterCalls'], value: 3 },
+    ],
+  }))
+  assert.equal(ok.status, 200)
+  assert.equal(ok.body.ok, true)
+  const view = ok.body.value as { value: Record<string, any> }
+  assert.equal(view.value.autoReviewFix.translateApprovalReason, false)
+  assert.equal(view.value.taskGuard.locale, 'en')
+  assert.equal(view.value.taskGuard.staleAfterCalls, 3)
+
+  const badLocale = await call(route(MCVISERON_API.mutate, settings), makeRequest({
+    ns: MCVISERON_SETTINGS_NAMESPACE,
+    ops: [{ op: 'set', path: ['taskGuard', 'locale'], value: 'fr' }],
+  }))
+  assert.equal(badLocale.status, 400)
+  const badNumber = await call(route(MCVISERON_API.mutate, settings), makeRequest({
+    ns: MCVISERON_SETTINGS_NAMESPACE,
+    ops: [{ op: 'set', path: ['taskGuard', 'staleAfterCalls'], value: 0 }],
+  }))
+  assert.equal(badNumber.status, 400)
 })
 
 test('mutate rejects a malformed time and a non-boolean toggle', async () => {

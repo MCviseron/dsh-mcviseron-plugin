@@ -4,9 +4,11 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 import { AppearanceScheduleRow } from './AppearanceScheduleRow.tsx'
+import { FallbackRestartRow } from './FallbackRestartRow.tsx'
 import { SettingsSection } from './SettingsSection.tsx'
 import { ScheduleDriver, type ThemeFace } from './driver.ts'
 import { en, zh, type McviseronKey } from './locales.ts'
+import { sectionPresence } from './section-presence.ts'
 
 const NS = 'mcviseron'
 
@@ -18,10 +20,47 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 export const inject = ['slots', 'locale']
 
+interface SlotFace {
+  inject: (name: string, callback: () => () => void) => void
+  register: (options: Record<string, unknown>, component: unknown) => () => void
+}
+
+/**
+ * Register a list-slot entry without letting a rejected slot (a profile whose
+ * settings shell does not declare it) fail the whole client plugin and dispose
+ * the other registrations.
+ */
+function registerSafely(
+  ctx: ClientContext,
+  name: string,
+  options: Record<string, unknown>,
+  component: unknown,
+  onRegistered?: () => void,
+  onFailed?: (error: unknown) => void,
+): void {
+  const slots = ctx.slots as unknown as SlotFace
+  try {
+    slots.inject(name, () => {
+      try {
+        const dispose = slots.register({ name, ...options }, component)
+        onRegistered?.()
+        return dispose
+      } catch (error) {
+        console.error('[mcviseron] cannot register ' + name, error)
+        onFailed?.(error)
+        return () => {}
+      }
+    })
+  } catch (error) {
+    console.error('[mcviseron] cannot inject ' + name, error)
+    onFailed?.(error)
+  }
+}
+
 /**
  * Browser half of the master plugin: registers the locale dictionaries, the
- * Appearance row, and the theme driver that keeps switching palettes while the
- * settings page is closed.
+ * Appearance row, the MCviseron settings section, and the General restart
+ * fallback used when the settings shell does not declare `settings.section`.
  *
  * `theme` is resolved lazily instead of being declared in `inject`, because the
  * row (and its persisted settings) must remain usable even when the theme
@@ -29,7 +68,11 @@ export const inject = ['slots', 'locale']
  * @param ctx - client cordis context.
  */
 export function apply(ctx: ClientContext): void {
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'mcviseron: dictionaries')
+  try {
+    ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'mcviseron: dictionaries')
+  } catch (error) {
+    console.error('[mcviseron] cannot register dictionaries', error)
+  }
 
   const themeOf = (): ThemeFace | undefined => {
     try {
@@ -41,21 +84,31 @@ export function apply(ctx: ClientContext): void {
   }
 
   const driver = new ScheduleDriver(themeOf)
-  ctx.effect(() => driver.start(), 'mcviseron: appearance schedule driver')
+  try {
+    ctx.effect(() => driver.start(), 'mcviseron: appearance schedule driver')
+  } catch (error) {
+    console.error('[mcviseron] cannot start the appearance driver', error)
+  }
 
-  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
-    name: 'settings.general.item',
+  // The theme registers Appearance at order 10 and Font settings at 11; 10.5
+  // keeps the schedule row directly under Appearance instead of below Font.
+  registerSafely(ctx, 'settings.general.item', {
     id: 'mcviseron-appearance-schedule',
-    order: 12,
+    order: 10.5,
     locale: NS,
     inject: () => ({ driver }),
-  }, AppearanceScheduleRow))
+  }, AppearanceScheduleRow)
 
-  ctx.slots.inject('settings.section', () => ctx.slots.register({
-    name: 'settings.section',
+  registerSafely(ctx, 'settings.general.item', {
+    id: 'mcviseron-restart-fallback',
+    order: 13,
+    locale: NS,
+  }, FallbackRestartRow)
+
+  registerSafely(ctx, 'settings.section', {
     id: 'mcviseron',
     order: 115,
-    label: () => ctx.locale.bind(NS)('page.title'),
+    label: 'MCviseron',
     locale: NS,
-  }, SettingsSection))
+  }, SettingsSection, () => { sectionPresence.markLive() }, (error) => { sectionPresence.markFailed(error) })
 }

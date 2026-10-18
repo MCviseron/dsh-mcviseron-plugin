@@ -148,7 +148,8 @@ test('approval guard appends a Chinese translation and preserves the audited tex
   assert.equal(outcome, 'allowed-once')
   const forwarded = seen[0]
   assert.notEqual(forwarded, request, 'the borrowed request object must not be mutated')
-  assert.equal(forwarded.reason, request.reason, 'the audited reason is untouched')
+  assert.ok(forwarded.reason.startsWith(request.reason), 'the audited reason keeps its original text as a prefix')
+  assert.match(forwarded.reason, /【审查理由 · 中文翻译】\n该操作会删除本会话之外已存在的生产数据行/)
   assert.equal(forwarded.displayReason.en, request.displayReason.en, 'the English text is untouched')
   assert.equal(
     forwarded.displayReason.zh,

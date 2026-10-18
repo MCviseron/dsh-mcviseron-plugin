@@ -11,6 +11,7 @@ import {
   translateForDisplay,
   translationRoute,
   withTranslation,
+  TRANSLATION_LABEL,
   type LocaleText,
   type TranslationSettings,
 } from './translate.ts'
@@ -174,10 +175,13 @@ function installPresetGuard(ctx: Context): void {
 
 /**
  * Append a Chinese translation of the reviewer's English note to one approval
- * request's `displayReason`.
+ * request's `displayReason`, and to the audited `reason` as a clearly
+ * delimited appendix.
  *
- * The audited `reason` is never touched, and the localized value keeps the
- * reviewer's wording verbatim ahead of the appended translation.
+ * The audited note keeps its original text as the leading prefix. The reason
+ * appendix exists because consumers that only observe the durable
+ * `approval/asked` event (the email reminder fallback) never see
+ * `displayReason`; without it the translation would be dropped there.
  *
  * @param scope - the scoped host context (may carry `llm`).
  * @param settings - resolved component settings.
@@ -214,8 +218,15 @@ export async function decorateApprovalRequest(
   const cleaned = cleanTranslation(translated)
   if (cleaned.length === 0 || !/[\u4e00-\u9fff]/.test(cleaned)) return request
 
+  const reasonValue = (request as { reason?: unknown }).reason
+  const originalReason = typeof reasonValue === 'string' ? reasonValue : ''
+  const reasonWithTranslation = originalReason !== '' && !originalReason.includes(TRANSLATION_LABEL)
+    ? withTranslation(originalReason, cleaned)
+    : originalReason
+
   return {
     ...(request as Record<string, unknown>),
+    ...(reasonWithTranslation !== originalReason ? { reason: reasonWithTranslation } : {}),
     displayReason: { ...record, [key]: withTranslation(localized, cleaned) },
   }
 }

@@ -5,6 +5,7 @@ import { MCVISERON_API } from './api.ts'
 import { MCVISERON_SETTINGS_NAMESPACE } from './namespace.ts'
 import { isLoopbackRequest } from './loopback.ts'
 import { normalizeScheduleConfig, parseTimeOfDay } from './schedule.ts'
+import { toPlain } from './volatile.ts'
 
 /**
  * One namespace view as the settings service serializes it. Structural on
@@ -26,10 +27,67 @@ export interface SettingsBridge {
 }
 
 const MAX_BODY_BYTES = 8 * 1024
-/** Appearance fields the row may write. */
-const FIELDS = new Set(['enabled', 'lightStart', 'lightEnd'])
 
-function json(res: ServerResponse, status: number, body: unknown): void {
+/** One writable config path and its runtime validation rule. */
+type FieldRule =
+  | { type: 'boolean' }
+  | { type: 'time' }
+  | { type: 'string' }
+  | { type: 'number'; min: number; max: number }
+  | { type: 'enum'; values: readonly string[] }
+  | { type: 'strings' }
+
+/** Paths the settings bridge may write: appearance fields plus component groups. */
+const FIELD_RULES: Record<string, FieldRule> = {
+  enabled: { type: 'boolean' },
+  lightStart: { type: 'time' },
+  lightEnd: { type: 'time' },
+  'autoReviewFix.keepPresetGuard': { type: 'boolean' },
+  'autoReviewFix.translateApprovalReason': { type: 'boolean' },
+  'autoReviewFix.translateTimeoutMs': { type: 'number', min: 500, max: 60000 },
+  'autoReviewFix.translateMaxChars': { type: 'number', min: 100, max: 20000 },
+  'autoReviewFix.translateProvider': { type: 'string' },
+  'autoReviewFix.translateModel': { type: 'string' },
+  'taskGuard.enabled': { type: 'boolean' },
+  'taskGuard.locale': { type: 'enum', values: ['zh', 'en'] },
+  'taskGuard.staleAfterCalls': { type: 'number', min: 1, max: 1000 },
+  'taskGuard.repeatEveryCalls': { type: 'number', min: 0, max: 1000 },
+  'taskGuard.blockAfterCalls': { type: 'number', min: 0, max: 10000 },
+  'taskGuard.rejectMissingActive': { type: 'boolean' },
+  'taskGuard.sourceKind': { type: 'enum', values: ['auto', 'v3', 'v4'] },
+  'taskGuard.maxListItems': { type: 'number', min: 1, max: 100 },
+  'taskGuard.detectStepIntent': { type: 'boolean' },
+  'taskGuard.translateTodoContent': { type: 'boolean' },
+  'taskGuard.todoTranslationTimeoutMs': { type: 'number', min: 500, max: 15000 },
+  'taskGuard.include': { type: 'strings' },
+  'taskGuard.exclude': { type: 'strings' },
+  'restart.enabled': { type: 'boolean' },
+  'restart.appPath': { type: 'string' },
+}
+
+function ruleFor(path: unknown): FieldRule | undefined {
+  if (!Array.isArray(path) || path.length === 0 || path.length > 2) return undefined
+  if (!path.every(part => typeof part === 'string')) return undefined
+  return FIELD_RULES[path.join('.')]
+}
+
+function validFieldValue(rule: FieldRule, value: unknown): boolean {
+  switch (rule.type) {
+    case 'boolean': return typeof value === 'boolean'
+    case 'time': return typeof value === 'string' && parseTimeOfDay(value) !== undefined
+    case 'string': return typeof value === 'string'
+    case 'number':
+      return typeof value === 'number' && Number.isFinite(value) && Number.isInteger(value) && value >= rule.min && value <= rule.max
+    case 'enum': return typeof value === 'string' && rule.values.includes(value)
+    case 'strings': return Array.isArray(value) && value.every(item => typeof item === 'string')
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+export function json(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' })
   res.end(JSON.stringify(body))
 }
@@ -77,11 +135,18 @@ function unwrapValue(value: unknown): unknown {
   return value
 }
 
-/** The browser-facing view: the flat appearance fields, normalized. */
+/** The browser-facing view: appearance fields plus every component config group. */
 function toPluginView(descriptor: SettingsBridgeView): Record<string, unknown> {
+  const plain = toPlain(unwrapValue(descriptor.value))
+  const record = isRecord(plain) ? plain : {}
   return {
     ns: String(descriptor.ns),
-    value: normalizeScheduleConfig(unwrapValue(descriptor.value)),
+    value: {
+      ...normalizeScheduleConfig(plain),
+      autoReviewFix: isRecord(record.autoReviewFix) ? record.autoReviewFix : {},
+      taskGuard: isRecord(record.taskGuard) ? record.taskGuard : {},
+      restart: isRecord(record.restart) ? record.restart : {},
+    },
     revision: descriptor.revision,
   }
 }
@@ -133,13 +198,10 @@ export function makeSettingsRoutes(settings: SettingsBridge): WebRoute[] {
       const ops = record.ops as SettingsPathOp[]
       const valid = ops.every((op) => {
         if (op.op !== 'set' && op.op !== 'unset') return false
-        if (!Array.isArray(op.path) || op.path.length !== 1) return false
-        const field = op.path[0]
-        if (typeof field !== 'string' || !FIELDS.has(field)) return false
+        const rule = ruleFor(op.path)
+        if (rule === undefined) return false
         if (op.op === 'unset') return true
-        return field === 'enabled'
-          ? typeof op.value === 'boolean'
-          : typeof op.value === 'string' && parseTimeOfDay(op.value) !== undefined
+        return validFieldValue(rule, op.value)
       })
       if (!valid) {
         return json(res, 400, { ok: false, code: 'settings-rejected', message: 'malformed settings operation' })

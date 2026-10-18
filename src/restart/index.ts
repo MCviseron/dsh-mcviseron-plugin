@@ -1,12 +1,13 @@
-import { spawn } from 'node:child_process'
-import { existsSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { appendFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { basename, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ServerResponse } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import z from '@deepseek-ai/schemastery'
 import { isLoopbackRequest } from '../loopback.ts'
+import { toPlain } from '../volatile.ts'
 
 /**
  * Restart component.
@@ -19,11 +20,13 @@ import { isLoopbackRequest } from '../loopback.ts'
  * disconnect) and starts the application again.
  */
 
+export const DEFAULT_RESTART_CONFIG = { enabled: true, appPath: '' } as const
+
 export const Config = z.object({
-  enabled: z.boolean().default(true).volatile(),
+  enabled: z.boolean().default(DEFAULT_RESTART_CONFIG.enabled).volatile(),
   /** Optional explicit application executable; empty derives it from the Host process. */
-  appPath: z.string().default('').volatile(),
-}).default({ enabled: true, appPath: '' })
+  appPath: z.string().default(DEFAULT_RESTART_CONFIG.appPath).volatile(),
+}).default(DEFAULT_RESTART_CONFIG)
 
 export interface RestartConfig {
   enabled?: boolean
@@ -54,7 +57,9 @@ export const RESTART_API = {
  * @param parentPid - the Host's `process.ppid`.
  * @param exists - file-existence probe (injectable for tests).
  * @param override - configured application path.
- * @returns the restart target, or undefined outside the desktop application.
+ * @param argv - the Host's process.argv.
+ * @param platform - host platform (injectable for tests).
+ * @returns the restart target, or undefined outside the Windows desktop app.
  */
 export function resolveRestartTarget(
   execPath: string,
@@ -62,9 +67,12 @@ export function resolveRestartTarget(
   exists: (path: string) => boolean,
   override = '',
   argv: readonly string[] = [],
+  platform: NodeJS.Platform = process.platform,
 ): RestartTarget | undefined {
+  if (platform !== 'win32') return undefined
   if (!Number.isSafeInteger(parentPid) || parentPid <= 0) return undefined
-  const candidate = override.trim() !== '' ? override.trim() : deriveDesktopAppPath(execPath, argv, exists)
+  const configured = typeof override === 'string' ? override.trim() : ''
+  const candidate = configured !== '' ? configured : deriveDesktopAppPath(execPath, argv, exists)
   if (candidate === '' || !exists(candidate)) return undefined
   const name = basename(candidate).toLowerCase()
   if (name === 'node' || name === 'node.exe') return undefined
@@ -96,62 +104,63 @@ export function deriveDesktopAppPath(
   return exists(candidate) ? candidate : execPath
 }
 
-/**
- * The detached restart helper. It waits for the HTTP response, closes the
- * Electron main, waits for the Host to finish its graceful IPC-disconnect
- * shutdown, clears ELECTRON_RUN_AS_NODE (the Host inherited it), and starts the
- * application again.
- * @param target - PIDs and executable captured before shutdown.
- * @returns PowerShell script text.
- */
-export function makeRestartScript(target: RestartTarget): string {
-  return [
-    'param(',
-    '  [Parameter(Mandatory=$true)][int]$MainPid,',
-    '  [Parameter(Mandatory=$true)][int]$HostPid,',
-    '  [Parameter(Mandatory=$true)][string]$Exe',
-    ')',
-    "$ErrorActionPreference = 'SilentlyContinue'",
-    'Start-Sleep -Milliseconds 900',
-    'Stop-Process -Id $MainPid -Force',
-    '$mainDeadline = (Get-Date).AddSeconds(20)',
-    'while ((Get-Process -Id $MainPid) -and ((Get-Date) -lt $mainDeadline)) { Start-Sleep -Milliseconds 250 }',
-    '$hostDeadline = (Get-Date).AddSeconds(15)',
-    'while ((Get-Process -Id $HostPid) -and ((Get-Date) -lt $hostDeadline)) { Start-Sleep -Milliseconds 250 }',
-    'if (Get-Process -Id $HostPid) { Stop-Process -Id $HostPid -Force }',
-    'Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue',
-    'Start-Process -FilePath $Exe -WorkingDirectory (Split-Path -Parent $Exe)',
-    'Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue',
-    '',
-  ].join('\r\n')
+/** One-time task that starts the desktop application directly. */
+const RESTART_TASK_NAME = 'DSH-MCviseron-Restart'
+const RESTART_DELAY_SECONDS = 6
+
+/** Shared diagnostic log written by the Host around the scheduled restart. */
+function restartLogPath(): string {
+  return join(tmpdir(), 'dsh-mcviseron-restart.log')
 }
 
-/** Launch the helper outside the Host process tree. */
+/**
+ * Build the Task Scheduler registration script. The task ACTION is the desktop
+ * executable itself, so the relaunch is not a console/terminal child: the
+ * hidden PowerShell only registers the task and exits. Task Scheduler then
+ * starts the application directly in the interactive user session.
+ * @param target - PIDs and executable captured before shutdown.
+ * @param taskName - one-time task name, overwritten on every restart.
+ * @param delaySeconds - how long the task waits before starting the application.
+ * @returns PowerShell registration script text.
+ */
+export function makeTaskScript(target: RestartTarget, taskName: string, delaySeconds: number): string {
+  const quote = (value: string): string => "'" + value.replace(/'/g, "''") + "'"
+  return [
+    '$user = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name',
+    `$action = New-ScheduledTaskAction -Execute ${quote(target.exePath)} -WorkingDirectory ${quote(dirname(target.exePath))}`,
+    `$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddSeconds(${delaySeconds})`,
+    '$principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited',
+    `Register-ScheduledTask -TaskName ${quote(taskName)} -Action $action -Trigger $trigger -Principal $principal -Force | Out-Null`,
+    '',
+  ].join('\n')
+}
+
+/** Register the direct-launch task, then close the Electron main process. */
 function launchHelper(target: RestartTarget): void {
-  const dir = mkdtempSync(join(tmpdir(), 'dsh-mcviseron-restart-'))
-  const script = join(dir, 'restart.ps1')
-  writeFileSync(script, makeRestartScript(target), 'utf8')
-  const child = spawn('powershell.exe', [
-    '-NoProfile',
-    '-NonInteractive',
-    '-ExecutionPolicy',
-    'Bypass',
-    '-WindowStyle',
-    'Hidden',
-    '-File',
-    script,
-    '-MainPid',
-    String(target.mainPid),
-    '-HostPid',
-    String(target.hostPid),
-    '-Exe',
-    target.exePath,
-  ], {
-    detached: true,
-    stdio: 'ignore',
-    windowsHide: true,
-  })
-  child.unref()
+  const logFile = restartLogPath()
+  try {
+    execFileSync('powershell.exe', [
+      '-NoProfile',
+      '-NonInteractive',
+      '-WindowStyle',
+      'Hidden',
+      '-Command',
+      makeTaskScript(target, RESTART_TASK_NAME, RESTART_DELAY_SECONDS),
+    ], { windowsHide: true, timeout: 20_000, encoding: 'utf8' })
+    appendFileSync(logFile, `${new Date().toISOString()} host: scheduled ${target.exePath} in ${RESTART_DELAY_SECONDS}s\n`, 'utf8')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    appendFileSync(logFile, `${new Date().toISOString()} host: task registration failed: ${message}\n`, 'utf8')
+    throw new Error('cannot schedule the restart task: ' + message, { cause: error })
+  }
+  setTimeout(() => {
+    try {
+      process.kill(target.mainPid)
+      appendFileSync(logFile, `${new Date().toISOString()} host: kill sent to ${target.mainPid}\n`, 'utf8')
+    } catch (error) {
+      appendFileSync(logFile, `${new Date().toISOString()} host: kill failed: ${error instanceof Error ? error.message : String(error)}\n`, 'utf8')
+    }
+  }, 700)
 }
 
 function json(res: ServerResponse, status: number, body: unknown): void {
@@ -195,12 +204,16 @@ export function makeRestartRoutes(deps: RestartRouteDeps): WebRoute[] {
     kind: 'exact',
     path: RESTART_API.status,
     handler: async (req, res): Promise<void> => {
-      if (req.method !== 'POST') return json(res, 405, { ok: false, error: 'method-not-allowed' })
-      if (!isLoopbackRequest(req)) return json(res, 403, { ok: false, error: 'forbidden' })
-      const target = deps.target()
-      json(res, 200, target === undefined
-        ? { ok: true, available: false, reason: 'desktop-app-unavailable' }
-        : { ok: true, available: true, appPath: target.exePath, mainPid: target.mainPid })
+      try {
+        if (req.method !== 'GET' && req.method !== 'POST') return json(res, 405, { ok: false, error: 'method-not-allowed' })
+        if (!isLoopbackRequest(req)) return json(res, 403, { ok: false, error: 'forbidden' })
+        const target = deps.target()
+        json(res, 200, target === undefined
+          ? { ok: true, available: false, reason: 'desktop-app-unavailable' }
+          : { ok: true, available: true, appPath: target.exePath, mainPid: target.mainPid })
+      } catch (error) {
+        json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
+      }
     },
   }
 
@@ -208,23 +221,23 @@ export function makeRestartRoutes(deps: RestartRouteDeps): WebRoute[] {
     kind: 'exact',
     path: RESTART_API.execute,
     handler: async (req, res): Promise<void> => {
-      if (req.method !== 'POST') return json(res, 405, { ok: false, error: 'method-not-allowed' })
-      if (!isLoopbackRequest(req)) return json(res, 403, { ok: false, error: 'forbidden' })
-      const body = await readJsonBody(req)
-      if (body === undefined || typeof body !== 'object' || body === null || (body as { confirm?: unknown }).confirm !== true) {
-        return json(res, 400, { ok: false, error: 'confirmation-required' })
-      }
-      const latest = now()
-      if (latest - lastLaunch < 5000) return json(res, 429, { ok: false, error: 'restart-already-scheduled' })
-      const target = deps.target()
-      if (target === undefined) return json(res, 409, { ok: false, error: 'desktop-app-unavailable' })
       try {
+        if (req.method !== 'POST') return json(res, 405, { ok: false, error: 'method-not-allowed' })
+        if (!isLoopbackRequest(req)) return json(res, 403, { ok: false, error: 'forbidden' })
+        const body = await readJsonBody(req)
+        if (body === undefined || typeof body !== 'object' || body === null || (body as { confirm?: unknown }).confirm !== true) {
+          return json(res, 400, { ok: false, error: 'confirmation-required' })
+        }
+        const latest = now()
+        if (latest - lastLaunch < 5000) return json(res, 429, { ok: false, error: 'restart-already-scheduled' })
+        const target = deps.target()
+        if (target === undefined) return json(res, 409, { ok: false, error: 'desktop-app-unavailable' })
         deps.launch(target)
+        lastLaunch = latest
+        json(res, 200, { ok: true, restarting: true, appPath: target.exePath })
       } catch (error) {
-        return json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
+        json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
       }
-      lastLaunch = latest
-      json(res, 200, { ok: true, restarting: true, appPath: target.exePath })
     },
   }
 
@@ -239,9 +252,11 @@ export const inject = ['webServer']
  * @param config - the entry Config.
  */
 export function apply(ctx: Context, config?: RestartConfig): void {
-  if (config?.enabled === false) return
+  const plain = (toPlain(config) ?? {}) as RestartConfig
+  if (plain.enabled === false) return
+  const appPath = typeof plain.appPath === 'string' ? plain.appPath : ''
   const routes = makeRestartRoutes({
-    target: () => resolveRestartTarget(process.execPath, process.ppid, existsSync, config?.appPath ?? '', process.argv),
+    target: () => resolveRestartTarget(process.execPath, process.ppid, existsSync, appPath, process.argv),
     launch: launchHelper,
   })
   ctx.effect(() => {

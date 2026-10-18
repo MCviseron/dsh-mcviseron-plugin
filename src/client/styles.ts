@@ -46,6 +46,29 @@ export const pageStyles: Record<string, CSSProperties> = {
   },
   componentName: { fontSize: 13, lineHeight: '20px', color: labelPrimary },
   componentHint: { fontSize: 12, lineHeight: '18px', color: labelTertiary, textAlign: 'right' },
+  form: { display: 'flex', flexDirection: 'column', gap: 10 },
+  formRow: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 4,
+    padding: '8px 0',
+    borderBottom: '1px solid ' + borderL2,
+  },
+  formLabel: { fontSize: 13, lineHeight: '18px', color: labelPrimary },
+  formHint: { fontSize: 11, lineHeight: '16px', color: labelTertiary },
+  formControl: {
+    width: '100%',
+    maxWidth: 420,
+    padding: '4px 8px',
+    border: '1px solid ' + borderL2,
+    borderRadius: 6,
+    background: fieldFill,
+    color: labelPrimary,
+    fontSize: 12,
+    fontFamily: 'inherit',
+  },
+  formInline: { display: 'flex', alignItems: 'center', gap: 8 },
+  formStatus: { fontSize: 11, lineHeight: '16px', color: labelTertiary },
 }
 
 const buttonShape: CSSProperties = {

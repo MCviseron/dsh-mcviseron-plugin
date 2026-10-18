@@ -1,16 +1,12 @@
-# dsh-mcviseron-plugin bundle patch: inserts one loader entry per component so
-# the DSH plugin inventory lists them individually:
-#   - appearance     (time-based light/dark; settings row + loopback bridge)
+# dsh-mcviseron-plugin bundle patch: inserts ONE loader entry named exactly
+# after the package. DSH composes a package's client half only when the Loader
+# row is an exact package specifier, so component subpath rows would silently
+# drop the browser half. The master entry mounts the components as sub-plugins:
+#   - appearance      (time-based light/dark; settings row + loopback bridge)
 #   - auto-review-fix (shutdown preset guard + Chinese approval translation)
-#   - task-guard     (todo plan notices)
-#   - restart        (Settings restart row; desktop app relaunch helper)
-# Entry ids double as the DSH >= 0.2 settings namespaces.
+#   - task-guard      (todo plan notices)
+#   - restart         (settings restart row; desktop app relaunch helper)
+# Entry id doubles as the DSH >= 0.2 settings namespace.
 - insert:
-    - id: mcviseron-appearance
-      name: 'dsh-mcviseron-plugin/appearance'
-    - id: mcviseron-auto-review-fix
-      name: 'dsh-mcviseron-plugin/auto-review-fix'
-    - id: mcviseron-task-guard
-      name: 'dsh-mcviseron-plugin/task-guard'
-    - id: mcviseron-restart
-      name: 'dsh-mcviseron-plugin/restart'
+    - id: mcviseron
+      name: 'dsh-mcviseron-plugin'

@@ -5,16 +5,35 @@ import { normalizeScheduleConfig, type ScheduleConfig } from '../schedule.ts'
 interface DescribeResponse {
   ok?: boolean
   value?: {
-    namespaces?: Array<{ ns?: unknown; value?: unknown }>
+    namespaces?: Array<{ ns?: unknown; value?: unknown; revision?: unknown }>
     writable?: boolean
   }
 }
 
 interface MutateResponse {
   ok?: boolean
-  value?: { value?: unknown }
+  value?: { value?: unknown; revision?: unknown }
   code?: string
   message?: string
+}
+
+/** Full component config as the Host bridge serializes it. */
+export interface PluginConfigView {
+  value: Record<string, unknown>
+  revision?: number
+  writable: boolean
+}
+
+/** Result of one component-config write. */
+export interface PluginWriteResult {
+  ok: boolean
+  value?: Record<string, unknown>
+  code?: string
+  message?: string
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
 async function post(path: string, body: unknown): Promise<unknown> {
@@ -64,5 +83,49 @@ export async function writeScheduleConfig(config: ScheduleConfig): Promise<Sched
     return normalizeScheduleConfig(body.value?.value)
   } catch {
     return undefined
+  }
+}
+
+/**
+ * Read the whole master-entry config (appearance fields + component groups).
+ * @returns the config view, or undefined when the bridge/namespace is unavailable.
+ */
+export async function readPluginConfig(): Promise<PluginConfigView | undefined> {
+  try {
+    const body = await post(MCVISERON_API.describe, {}) as DescribeResponse
+    if (body.ok !== true) return undefined
+    const view = body.value?.namespaces?.find(candidate => String(candidate.ns) === MCVISERON_SETTINGS_NAMESPACE)
+    if (view === undefined) return undefined
+    return {
+      value: isRecord(view.value) ? view.value : {},
+      revision: typeof view.revision === 'number' ? view.revision : undefined,
+      writable: body.value?.writable !== false,
+    }
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Write one component-config field through the Host bridge.
+ * @param path - nested config path (e.g. ['autoReviewFix', 'translateApprovalReason']).
+ * @param value - JSON value validated by the Host bridge.
+ * @returns the write result and the freshly read config when accepted.
+ */
+export async function writePluginConfig(path: readonly string[], value: unknown): Promise<PluginWriteResult> {
+  try {
+    const body = await post(MCVISERON_API.mutate, {
+      ns: MCVISERON_SETTINGS_NAMESPACE,
+      ops: [{ op: 'set', path: [...path], value }],
+    }) as MutateResponse
+    if (body.ok !== true) {
+      return { ok: false, code: body.code, message: body.message }
+    }
+    return {
+      ok: true,
+      value: isRecord(body.value?.value) ? body.value.value : undefined,
+    }
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : String(error) }
   }
 }

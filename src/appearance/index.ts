@@ -2,7 +2,8 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-settings'
 import z from '@deepseek-ai/schemastery'
-import { makeSettingsRoutes, type SettingsBridge } from '../routes.ts'
+import { isLoopbackRequest } from '../loopback.ts'
+import { json, makeSettingsRoutes, type SettingsBridge } from '../routes.ts'
 import { DEFAULT_SCHEDULE_CONFIG } from '../schedule.ts'
 
 /**
@@ -32,6 +33,9 @@ export interface AppearanceConfig {
   lightEnd?: string
 }
 
+/** Read-only client-module diagnostics used while a settings page is missing. */
+const DIAGNOSTICS_PATH = '/api/dsh-mcviseron/diagnostics'
+
 export const inject = ['webServer']
 
 /**
@@ -40,6 +44,50 @@ export const inject = ['webServer']
  * @param _config - resolved entry config (the browser reads it live).
  */
 export function apply(ctx: Context, _config?: AppearanceConfig): void {
+  ctx.effect(() => ctx.webServer.register({
+    kind: 'exact',
+    path: DIAGNOSTICS_PATH,
+    handler: async (req, res): Promise<void> => {
+      try {
+        if (req.method !== 'GET' && req.method !== 'POST') return json(res, 405, { ok: false, error: 'method-not-allowed' })
+        if (!isLoopbackRequest(req)) return json(res, 403, { ok: false, error: 'forbidden' })
+        const modules = (ctx as unknown as { get?: (name: string) => unknown }).get?.('clientModules') as {
+          clientPath?: (id: string) => string | undefined
+          graph?: () => { batches?: unknown[]; entries?: unknown[] }
+          release?: unknown
+        } | undefined
+        const graph = typeof modules?.graph === 'function' ? modules.graph() : undefined
+        const batches = Array.isArray(graph?.batches) ? graph.batches : []
+        const rows: unknown[] = []
+        const batchSummary: unknown[] = []
+        for (const batch of batches as Array<{ descriptor?: { phase?: string; entries?: unknown[] }; entries?: unknown[] }>) {
+          const entries = batch?.descriptor?.entries ?? batch?.entries ?? []
+          batchSummary.push({ phase: batch?.descriptor?.phase, count: entries.length })
+          for (const row of entries) rows.push(row)
+        }
+        const mcviseronRows = rows.filter((row) => JSON.stringify(row).includes('mcviseron'))
+        const loaderEntries: unknown[] = []
+        const loader = (ctx as unknown as { loader?: { entries?: () => Iterable<{ options?: { name?: string }; disabled?: boolean; fiber?: unknown }> } }).loader
+        for (const entry of loader?.entries?.() ?? []) {
+          if (String(entry.options?.name ?? '').includes('mcviseron')) {
+            loaderEntries.push({ name: entry.options?.name, disabled: Boolean(entry.disabled), fiber: Boolean(entry.fiber) })
+          }
+        }
+        json(res, 200, {
+          ok: true,
+          clientPath: modules?.clientPath?.('dsh-mcviseron-plugin') ?? null,
+          graphKeys: graph !== undefined ? Object.keys(graph) : null,
+          batches: batchSummary,
+          mcviseronRows,
+          loaderEntries,
+          release: modules?.release ?? null,
+        })
+      } catch (error) {
+        json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
+      }
+    },
+  }), 'mcviseron-appearance: client diagnostics')
+
   ctx.inject(['settings'], (sctx) => {
     const settings = sctx.settings as unknown as SettingsFormsFace
     if (typeof settings.configure === 'function') {
