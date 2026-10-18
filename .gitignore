@@ -15,6 +15,7 @@ Thumbs.db
 *.tgz
 .pack-check/
 .asar-inspect/
+.inspect*/
 .tmp-*
 
 # Editor / IDE
