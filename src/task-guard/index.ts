@@ -19,6 +19,9 @@ export const Config = z.object({
   rejectMissingActive: z.boolean().default(false).volatile(),
   sourceKind: z.union(['auto', 'v3', 'v4'] as const).default('auto').volatile(),
   maxListItems: z.number().min(1).default(6).volatile(),
+  detectStepIntent: z.boolean().default(true).volatile(),
+  translateTodoContent: z.boolean().default(true).volatile(),
+  todoTranslationTimeoutMs: z.number().min(500).max(15000).default(3000).volatile(),
   include: z.array(z.string()).default([]).volatile(),
   exclude: z.array(z.string()).default(['todo_write', 'ask_user_question']).volatile(),
 }).default({
@@ -30,6 +33,9 @@ export const Config = z.object({
   rejectMissingActive: false,
   sourceKind: 'auto',
   maxListItems: 6,
+  detectStepIntent: true,
+  translateTodoContent: true,
+  todoTranslationTimeoutMs: 3000,
   include: [],
   exclude: ['todo_write', 'ask_user_question'],
 })

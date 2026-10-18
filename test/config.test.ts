@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { Config as AppearanceConfig } from '../src/appearance/index.ts'
-import { Config as AutoReviewConfig } from '../src/auto-review/index.ts'
+import { Config as AutoReviewConfig } from '../src/auto-review-fix/index.ts'
 import { Config as TaskGuardConfig } from '../src/task-guard/index.ts'
 
 type VolatileLike = { get: () => unknown }
@@ -68,6 +68,9 @@ test('taskGuard defaults keep the component tool filter', () => {
     rejectMissingActive: false,
     sourceKind: 'auto',
     maxListItems: 6,
+    detectStepIntent: true,
+    translateTodoContent: true,
+    todoTranslationTimeoutMs: 3000,
     include: [],
     exclude: ['todo_write', 'ask_user_question'],
   })

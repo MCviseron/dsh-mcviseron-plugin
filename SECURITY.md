@@ -15,6 +15,7 @@
 - 插件自身不发起外部网络请求、不读取凭据、不执行命令。
 - **Auto review 译文例外（经由宿主）**：开启 `translateApprovalReason` 时，插件会通过 Host 的 `llm` 服务，把审查理由（去掉 `Auto review denied this call:` 前缀后的正文）作为一次短请求发给当前会话的 provider/model，或 `translateProvider`/`translateModel` 指定的模型。请求不携带文件内容或会话记录；可用 `translateApprovalReason: false` 完全关闭。
 - 审批译文失败（超时、无 `llm`、无会话路由、无 `displayReason`、模型报错）一律原样放行审批，不会阻塞或改写审计文本。
+- **Todo 标题译文（经由宿主）**：开启 `translateTodoContent` 时，`mcviseron-task-guard` 会把待展示的 todo 标题（最多 `maxListItems` 条）通过 Host `llm` 服务批量发给当前会话的 provider/model，用于生成「中文（English）」显示；请求不包含会话记录或文件内容，可按需关闭。译文只进入 notice 展示，不回写 todo 列表。
 
 ### 设置桥
 
@@ -22,7 +23,7 @@
 - 两条接口都执行 loopback 信任栅栏：socket 地址必须是 loopback、`Host` 头必须是 loopback 主机名、存在 `Origin` 时必须与 `Host` 同源、`Sec-Fetch-Site: cross-site` 直接拒绝；`X-Forwarded-For` 从不被信任。
 - 写入接口只接受命名空间 `mcviseron-appearance` 与 `enabled` / `lightStart` / `lightEnd` 三个字段，并校验取值类型与 `HH:MM` 格式；请求体上限 8 KiB。
 - 设置值始终经过 `normalizeScheduleConfig` 归一化，畸形值回退默认，不会把任意值写入 DSH 设置。
-- `mcviseron-auto-review` 与 `mcviseron-task-guard` 的配置不经过浏览器接口，只由 profile 配置（本地文件）维护。
+- `mcviseron-auto-review-fix` 与 `mcviseron-task-guard` 的配置不经过浏览器接口，只由 profile 配置（本地文件）维护。
 
 ### 进程内包装
 

@@ -14,7 +14,7 @@ import {
   decorateApprovalRequest,
   installAutoReview,
   normalizeConfig,
-} from '../src/components/auto-review/index.ts'
+} from '../src/components/auto-review-fix/index.ts'
 
 // The translation cache lives for the process; isolate every test from the next.
 beforeEach(() => { clearTranslationCache() })
@@ -195,6 +195,26 @@ test('approval guard leaves unrelated approvals alone', async () => {
   }
   await approvalOf(ctx).request(request)
   assert.deepEqual(seen[0].displayReason, request.displayReason)
+  assert.equal(llm.calls.length, 0)
+})
+
+test('approval guard leaves an already-Chinese reviewer note alone', async () => {
+  const seen: any[] = []
+  const approval = { request: async (request: unknown) => { seen.push(request); return 'allowed-once' } }
+  const llm = fakeLlm('不该出现')
+  const { ctx } = fakeHost({ approval, llm })
+  installAutoReview(ctx)
+  const request = {
+    agent: routedAgent(),
+    toolName: 'pwsh',
+    reason: 'Auto review 拒绝了此调用：该操作会删除生产数据',
+    displayReason: {
+      en: 'Auto review denied this call: 该操作会删除生产数据',
+      zh: 'Auto review 拒绝了此调用：该操作会删除生产数据',
+    },
+  }
+  assert.equal(await approvalOf(ctx).request(request), 'allowed-once')
+  assert.deepEqual(seen[0], request, 'a Chinese note is not translated again')
   assert.equal(llm.calls.length, 0)
 })
 

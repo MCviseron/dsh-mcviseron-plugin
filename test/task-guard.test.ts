@@ -8,7 +8,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { Context } from '@deepseek-ai/cordis'
-import { installTaskGuard, type TaskGuardConfig } from '../src/components/task-guard/index.ts'
+import { detectStepIntent, installTaskGuard, type TaskGuardConfig } from '../src/components/task-guard/index.ts'
 
 const agent = { session: { id: 'session-1' } }
 
@@ -26,17 +26,21 @@ function call(name: string, owner = agent, parent?: unknown) {
 
 type Handler = (...args: any[]) => any
 
-function harness(config?: TaskGuardConfig, owner = agent) {
+function harness(config?: TaskGuardConfig, owner = agent, services: Record<string, any> = {}) {
   const handlers: Record<string, Handler[]> = {
     'tools/pre-execute': [],
     'tools/post-execute': [],
     'agent/pre-step': [],
     'session/event': [],
+    'agent/assistant-stream': [],
   }
   const ctx = {
     on(event: string, listener: Handler) {
       handlers[event].push(listener)
       return () => {}
+    },
+    get(name: string) {
+      return services[name]
     },
   }
   installTaskGuard(ctx as unknown as Context, config)
@@ -55,6 +59,9 @@ function harness(config?: TaskGuardConfig, owner = agent) {
     step: () => waterfall('agent/pre-step', [{ agent: owner }], { kind: 'enter', messages: [] }),
     session: (event: unknown) => {
       for (const listener of handlers['session/event']) listener(owner.session, event)
+    },
+    stream: (frame: unknown) => {
+      for (const listener of handlers['agent/assistant-stream']) listener({ frame })
     },
   }
 }
@@ -185,4 +192,45 @@ test('rejects unknown config fields', () => {
   assert.throws(() => harness({ rejectMissingActive: 'yes' } as unknown as TaskGuardConfig), /rejectMissingActive/)
   assert.throws(() => harness({ requireActive: true } as unknown as TaskGuardConfig), /unknown config field "requireActive"/)
   assert.throws(() => harness({ sourceKind: 'v5' } as unknown as TaskGuardConfig), /sourceKind/)
+})
+
+test('detectStepIntent matches English and Chinese step phrases', () => {
+  const todos = [
+    todo('Implement login endpoint', 'pending'),
+    todo('Write documentation', 'pending'),
+    todo('Release build', 'completed'),
+  ] as any
+  assert.equal(detectStepIntent('Now I will implement the login endpoint.', todos)?.todo.content, 'Implement login endpoint')
+  assert.equal(detectStepIntent('接下来我会编写文档。', [todo('编写文档', 'pending')] as any)?.todo.content, '编写文档')
+  assert.equal(detectStepIntent('Now I will release the build.', todos), undefined, 'completed todos are never suggested')
+  assert.equal(detectStepIntent('No intent phrase here.', todos), undefined)
+})
+
+test('emits one intent notice per step when reasoning names the next pending task', async () => {
+  const owner = { session: { id: 'intent-session', requestHeader: () => ({ config: { provider: 'p', model: 'm' } }) } }
+  const h = harness({ locale: 'zh', staleAfterCalls: 99, detectStepIntent: true, translateTodoContent: false }, owner)
+  await seed(h, [todo('Implement login endpoint', 'in_progress'), todo('Write docs', 'pending')])
+  h.step()
+  h.stream({ type: 'chunk', attemptId: 'intent-session:1', chunk: { type: 'reasoning-delta', text: 'Now I will write docs.' } })
+
+  const first = await h.post(call('read', owner))
+  const [notice] = first.additionalContexts
+  assert.match(notice.content[0].text, /写 docs|Write docs/)
+  assert.match(notice.content[0].text, /"todos"/)
+  assert.equal((await h.post(call('read', owner))).additionalContexts, undefined, 'at most one intent notice per step')
+})
+
+test('translates English todo titles into Chinese inside a notice', async () => {
+  const owner = { session: { id: 'translate-session', requestHeader: () => ({ config: { provider: 'p', model: 'm' } }) } }
+  const llm = {
+    stream: () => (async function* () {
+      yield { type: 'text-delta', index: 0, text: '["编写部署文档"]' }
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    })(),
+  }
+  const h = harness({ locale: 'zh', translateTodoContent: true }, owner, { llm })
+  const list = [todo('Write release notes', 'completed'), todo('Write deployment docs', 'pending')]
+  const decision = await h.post(write(list, owner))
+  const [notice] = decision.additionalContexts
+  assert.match(notice.content[0].text, /编写部署文档（Write deployment docs）/)
 })

@@ -11,6 +11,35 @@
 - 设置行支持「立即测试」预览按钮。
 - 为 `autoReview` / `taskGuard` 提供可视化设置页（当前通过 profile 配置维护）。
 
+## [0.4.0] - 2026-10-18
+
+### Added
+
+- **Todo 步骤意图检测**（`detectStepIntent`，默认开启）：监听官方 `agent/assistant-stream` 的 `text-delta` / `reasoning-delta`，识别「Now I will …」「Next I will …」「Let me …」「接下来我会 …」「下一步 …」等句式，并与 `pending` todo 做 token / 子串匹配。命中时在 `tools/post-execute` 追加一条**定向建议 notice**，内含可直接发送的 `todo_write` JSON（把下一阶段设为 `in_progress`、当前阶段设为 `completed`）；每条消息最多一次，解析失败/无流/不匹配一律静默跳过，**绝不拒绝或阻塞任务**。
+- **Notice 内中文 todo 展示**（`translateTodoContent`，默认开启）：notice 中的英文 todo 标题通过宿主 `llm` 批量翻译为「中文（English）」；按标题缓存（上限 256）、单次超时 `todoTranslationTimeoutMs`（默认 3000ms），失败回退原文。只影响 notice 展示，**不改写模型写入的 todo 列表**。
+- notice 增加「todo 内容可以直接用中文书写」提示，引导模型后续直接写中文 todo。
+- 新增 `test/task-guard.test.ts` 用例：中英文意图匹配、每步最多一条意图 notice、todo 标题翻译。
+
+### Fixed
+
+- **Auto review 修复组件对中文审查理由重复翻译**：审查正文已含 CJK 字符时直接跳过翻译，审批卡片保持原样；新增回归测试。
+- **Todo 停滞提醒在真实 loop 中的每步重置**：`agent/pre-step` 同时重置 `reminderDeliveredThisStep` 与意图去重标记，并清理当前步骤的意图缓冲，避免一条通知之后整轮不再提醒。
+
+### Changed
+
+- 组件更名，避免与官方自动审查插件重名：
+  - 条目 id `mcviseron-auto-review` → **`mcviseron-auto-review-fix`**
+  - 模块 `dsh-mcviseron-plugin/auto-review` → **`dsh-mcviseron-plugin/auto-review-fix`**
+  - 源码目录 `src/auto-review` → `src/auto-review-fix`，构建产物 `lib/auto-review-fix.js`
+- `taskGuard` 新增三个字段：`detectStepIntent`、`translateTodoContent`、`todoTranslationTimeoutMs`（entry Config 与组件校验同步）。
+- 本机 profile 已把 `mcviseron-auto-review` 条目改为 `mcviseron-auto-review-fix`，并在 `mcviseron-task-guard` 中显式写出三个新字段。
+- 版本号 `0.3.0` → `0.4.0`。
+
+### Compatibility
+
+- 目标 DSH `0.2.1-rc.2`；意图检测依赖的 `agent/assistant-stream` 帧格式在该代际为 `{ type: 'chunk', chunk: { type: 'text-delta' | 'reasoning-delta', text } }`，缺失时特性探测为 no-op。
+- 合计 **62 项测试**全部通过。
+
 ## [0.3.0] - 2026-10-18
 
 ### Fixed
@@ -21,7 +50,7 @@
 
 - `cordis.patch.yml` 改为插入三条目：
   - `mcviseron-appearance` → `dsh-mcviseron-plugin/appearance`
-  - `mcviseron-auto-review` → `dsh-mcviseron-plugin/auto-review`
+  - `mcviseron-auto-review-fix` → `dsh-mcviseron-plugin/auto-review-fix`
   - `mcviseron-task-guard` → `dsh-mcviseron-plugin/task-guard`
 - 包新增三个子路径导出与三个 Host 构建产物：`lib/appearance.js`、`lib/auto-review.js`、`lib/task-guard.js`；删除旧的聚合 `lib/index.js`。
 - 配置结构从 0.2.0 的嵌套分组（`appearance` / `autoReview` / `taskGuard`）恢复为**每个条目一份扁平 Config**；外观命名空间从 `mcviseron` 改为 `mcviseron-appearance`，设置桥路径恢复为 `['enabled']` 等扁平字段。
@@ -36,7 +65,7 @@
 ### Tests
 
 - `test/config.test.ts` 改为分别校验三个条目的 Config；`test/plugin.test.ts` 改为加载三条目验证组合行为；设置桥测试恢复扁平字段。
-- 合计 **58 项测试**全部通过。
+- 合计 **62 项测试**全部通过。
 
 ## [0.2.0] - 2026-10-18
 

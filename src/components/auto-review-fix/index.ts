@@ -3,6 +3,7 @@ import {
   chineseKey,
   cleanTranslation,
   clearTranslationCache,
+  containsCjk,
   englishText,
   hasTranslation,
   isAutoReviewText,
@@ -202,6 +203,9 @@ export async function decorateApprovalRequest(
   if (typeof localized !== 'string' || hasTranslation(localized)) return request
   const excerpt = reviewerExcerpt(english)
   if (excerpt.length === 0 || excerpt.length > settings.maxChars) return request
+  // The reviewer already wrote this note in Chinese: appending a "translation"
+  // would duplicate the same text, so leave the prompt untouched.
+  if (containsCjk(excerpt)) return request
   if (translationRoute(settings, request) === undefined) return request
 
   const llm = serviceOf(scope, 'llm') as { stream?: (options: unknown) => unknown } | undefined

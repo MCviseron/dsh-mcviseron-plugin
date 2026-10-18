@@ -9,7 +9,7 @@ MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包承载多�
 | 组件 | profile 条目 id | 模块 | 作用 |
 | --- | --- | --- | --- |
 | **外观 · 按时间自动切换深浅色** | `mcviseron-appearance` | `dsh-mcviseron-plugin/appearance` | 「设置 → 通用 → 外观」新增选项，按本机时间切换浅/深色 |
-| **Auto review 加固** | `mcviseron-auto-review` | `dsh-mcviseron-plugin/auto-review` | 关机不再把 Auto 会话写成完全访问；人审提示追加中文译文（不改审查原文） |
+| **Auto review 修复** | `mcviseron-auto-review-fix` | `dsh-mcviseron-plugin/auto-review-fix` | 关机不再把 Auto 会话写成完全访问；人审提示追加中文译文（不改审查原文） |
 | **Todo 计划守卫** | `mcviseron-task-guard` | `dsh-mcviseron-plugin/task-guard` | 多阶段任务忘记更新 todo 时发出 notice（可选硬拦截） |
 
 > 0.2.0 曾把三个组件放在**一个** `mcviseron` 条目里，插件管理器只显示 1 个「组件」。0.3.0 起拆成三个条目，插件管理器/插件清单会显示 3 个组件，各自可单独启停与配置。
@@ -22,12 +22,14 @@ MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包承载多�
 - 只在启用、修改时段、以及每个边界时刻应用；中途手动切换配色会保留到下一个边界。
 - 设置行实时显示「当前时段」与「下次切换」。
 
-### 2. Auto review 加固
+### 2. Auto review 修复
 
 1. **关机预设守卫**：Auto review 在卸载时会调用 `permissionPresets.set` 把仍处于 Auto 的会话改成 `danger-full-access`。整套宿主退出时这是错误落盘；组件在根 Cordis fiber 不是 `ACTIVE` 时丢弃该写入（运行中移除插件仍然照常迁移）。
 2. **审批理由中文译文**：自动审查拒绝并转人工审批时，`displayReason` 里的英文审查理由原样保留，只在本地化文本末尾追加 `【审查理由 · 中文翻译】` 段落。`reason`（审计字段）与 `displayReason.en` 一字不改。
 
 翻译使用当前会话的 provider/model 再发一次短请求（可选固定 provider/model），按原文缓存（进程内，上限 256），超时 6 秒可配。**任何失败都原样放行审批**：没有 `llm`、没有会话路由、宿主没有 `displayReason`、超时、模型报错——都不会阻塞审批，也不会改写审查文本。
+
+审查理由本身已经是中文（含任意 CJK 字符）时**不会再翻译**，审批卡片保持原样；英文与中文混合、但审查正文已是中文的情况同样跳过。
 
 ### 3. Todo 计划守卫
 
@@ -35,6 +37,8 @@ MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包承载多�
 - 连续 N 次成功工具调用没更新 todo：再附一条停滞 notice（默认 5 次后首发，之后每 4 次重复）。
 - 都通过官方 `tools/post-execute` 的 `additionalContexts` 送达，不注册 system prompt 段落，不注入用户提示词。
 - 可选严格模式：`rejectMissingActive: true` 拒绝缺少 active 的写入；`blockAfterCalls: N` 在停滞过久时硬拦截下一次工具调用。
+- **步骤意图检测**（`detectStepIntent`）：监听官方 `agent/assistant-stream` 的 `text-delta` / `reasoning-delta`，识别「Now I will …」「接下来我会 …」「下一步 …」等句式，并与 `pending` todo 做 token 匹配。命中时附一条**定向 notice**（每条消息最多一次），里面带可直接发送的 `todo_write` JSON；不匹配、没有流、解析失败都静默跳过，**绝不阻塞任务**。
+- **中文 todo 展示**（`translateTodoContent`）：notice 里的英文 todo 标题会经 `llm` 批量翻译成「中文（English）」显示，按标题缓存、超时 3 秒可配；翻译失败就显示原文。notice 里还会提示「todo 内容可以直接用中文书写」。**只影响 notice 展示，不改写模型写入的 todo 列表**。
 - notice 的 source kind 按会话格式自动选择：v4 用 `plugin:task-guard`，v3 用 `plugin` + `plugin: 'task-guard'`。
 
 ## 安装
@@ -69,8 +73,8 @@ pnpm add dsh-mcviseron-plugin
     lightStart: "08:00"
     lightEnd: "23:00"
 
-- id: mcviseron-auto-review
-  name: dsh-mcviseron-plugin/auto-review
+- id: mcviseron-auto-review-fix
+  name: dsh-mcviseron-plugin/auto-review-fix
   config:
     keepPresetGuard: true
     translateApprovalReason: true
@@ -100,7 +104,7 @@ pnpm add dsh-mcviseron-plugin
 | `lightStart` | `HH:MM` | `08:00` | 早间开始（含） |
 | `lightEnd` | `HH:MM` | `23:00` | 早间结束（不含） |
 
-### `mcviseron-auto-review`
+### `mcviseron-auto-review-fix`
 
 | 字段 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
@@ -125,6 +129,9 @@ pnpm add dsh-mcviseron-plugin
 | `maxListItems` | integer ≥1 | `6` | notice 最多列出多少个剩余任务 |
 | `include` | string[] | `[]` | 只统计这些工具名（支持 `*`）；空 = 全部 |
 | `exclude` | string[] | `todo_write`, `ask_user_question` | 不统计的工具名 |
+| `detectStepIntent` | boolean | `true` | 从思考/正文里识别「Now I will …」等句式并匹配 pending todo，命中时发一条定向 notice（仅建议） |
+| `translateTodoContent` | boolean | `true` | notice 中的英文 todo 标题翻译为「中文（English）」显示 |
+| `todoTranslationTimeoutMs` | number | `3000` | 单次批量 todo 翻译超时，500–15000 |
 
 ## 工作原理
 
@@ -135,8 +142,8 @@ pnpm add dsh-mcviseron-plugin
 ```yaml
 - id: mcviseron-appearance
   name: dsh-mcviseron-plugin/appearance
-- id: mcviseron-auto-review
-  name: dsh-mcviseron-plugin/auto-review
+- id: mcviseron-auto-review-fix
+  name: dsh-mcviseron-plugin/auto-review-fix
 - id: mcviseron-task-guard
   name: dsh-mcviseron-plugin/task-guard
 ```
@@ -146,7 +153,7 @@ pnpm add dsh-mcviseron-plugin
 ### 组件装配
 
 - `src/appearance/index.ts`：只有 Host 设置桥（`ctx.settings.configure({ auto: false })` + 两条 loopback 路由）；浏览器半边在 `src/client/`，读取 `mcviseron-appearance` 命名空间并驱动 `ctx.theme.setTheme`。
-- `src/auto-review/index.ts`：`installAutoReview`，通过 `ctx.inject(['permissionPresets' | 'approval'])` 特性探测并包装服务。
+- `src/auto-review-fix/index.ts`：`installAutoReview`，通过 `ctx.inject(['permissionPresets' | 'approval'])` 特性探测并包装服务。
 - `src/task-guard/index.ts`：`installTaskGuard`，注册 `tools/pre-execute`、`tools/post-execute`、`agent/pre-step`、`session/event`。
 - 三个 entry 都会先 `toPlain()` 展开 DSH 0.2 的 volatile 配置引用，再交给组件。
 
@@ -167,7 +174,7 @@ DSH 0.2 的官方设置 apiproxy 不向浏览器暴露第三方命名空间，�
 
 | DSH 版本 | 状态 |
 | --- | --- |
-| `0.2.1-rc.2` | ✅ 本版本验证（desktop profile；58 项测试 + 真实 Cordis 上下文） |
+| `0.2.1-rc.2` | ✅ 本版本验证（desktop profile；62 项测试 + 真实 Cordis 上下文） |
 | `0.2.0-rc.x` | ✅ peer 范围覆盖（同一套设置、审批与 hook 接缝） |
 | `0.1.x` | ❌ 不支持：0.1 的插件自行注册设置命名空间，与本插件的条目 id 命名空间模型不同 |
 
@@ -226,7 +233,7 @@ test/
 
 ```bash
 pnpm install
-pnpm check     # typecheck + 58 项测试 + 构建
+pnpm check     # typecheck + 62 项测试 + 构建
 ```
 
 构建产物：`lib/appearance.js`、`lib/auto-review.js`、`lib/task-guard.js`（Host ESM）与 `lib/client.js`（浏览器模块）。`lib/` 不入库。

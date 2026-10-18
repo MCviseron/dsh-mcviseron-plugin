@@ -10,7 +10,7 @@ pnpm install
 pnpm check
 ```
 
-`pnpm check` 依次执行 `tsc --noEmit`、全部 `node --experimental-strip-types test/*.test.ts`（58 项）与 `node build.mjs`。
+`pnpm check` 依次执行 `tsc --noEmit`、全部 `node --experimental-strip-types test/*.test.ts`（62 项）与 `node build.mjs`。
 
 ## 代码约定
 
@@ -41,7 +41,7 @@ pnpm check
 1. 安装目标 DSH 版本对应的 `@deepseek-ai/*` 开发依赖（`pnpm add -D @deepseek-ai/dsh-client-connection@<ver> ...`，仅类型需要）。
 2. `pnpm check`；若接口变化，逐条目修复：
    - `mcviseron-appearance`：`ctx.settings.describe/mutate/configure`、`settings.general.item` 插槽、`ctx.theme.setTheme/getTheme`；
-   - `mcviseron-auto-review`：`permissionPresets.set`、`approval.request`、`displayReason`、`llm.stream`；
+   - `mcviseron-auto-review-fix`：`permissionPresets.set`、`approval.request`、`displayReason`、`llm.stream`；
    - `mcviseron-task-guard`：`tools/pre-execute` / `post-execute` / `agent/pre-step` / `session/event`、session format source kind。
 3. 在 `CHANGELOG.md` 的 `Compatibility` 段落记录验证过的版本与 peer 范围。
 4. 手动验证：插件管理器显示 3 个组件；外观开关与时段、跨午夜窗口、刷新后配置仍在；触发一次 Auto review 被拒看审批卡片译文；跑一个多阶段任务看 todo notice。

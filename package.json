@@ -1,7 +1,7 @@
 {
   "name": "dsh-mcviseron-plugin",
-  "version": "0.3.0",
-  "description": "DeepSeek Harness (DSH) master plugin — one package hosting MCviseron's DSH components as separate bundle entries: a time-based light/dark Appearance schedule, an Auto-review shutdown guard with Chinese approval-reason translation, and a todo plan guard that keeps multi-stage work advancing.",
+  "version": "0.4.0",
+  "description": "DeepSeek Harness (DSH) master plugin — one package hosting MCviseron's DSH components as separate bundle entries: a time-based light/dark Appearance schedule, an Auto-review fix (shutdown preset guard + Chinese approval-reason translation), and a todo plan guard that keeps multi-stage work advancing.",
   "license": "Apache-2.0",
   "author": {
     "name": "MCviseron",
@@ -42,7 +42,7 @@
   "exports": {
     ".": "./lib/appearance.js",
     "./appearance": "./lib/appearance.js",
-    "./auto-review": "./lib/auto-review.js",
+    "./auto-review-fix": "./lib/auto-review-fix.js",
     "./task-guard": "./lib/task-guard.js",
     "./client": "./lib/client.js",
     "./cordis.patch.yml": "./cordis.patch.yml",
@@ -75,7 +75,7 @@
   "scripts": {
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types test/schedule.test.ts && node --experimental-strip-types test/routes.test.ts && node --experimental-strip-types test/config.test.ts && node --experimental-strip-types test/auto-review.test.ts && node --experimental-strip-types test/auto-review-cordis.test.ts && node --experimental-strip-types test/task-guard.test.ts && node --experimental-strip-types test/task-guard-cordis.test.ts && node --experimental-strip-types test/plugin.test.ts",
+    "test": "node --experimental-strip-types test/schedule.test.ts && node --experimental-strip-types test/routes.test.ts && node --experimental-strip-types test/config.test.ts && node --experimental-strip-types test/auto-review-fix.test.ts && node --experimental-strip-types test/auto-review-fix-cordis.test.ts && node --experimental-strip-types test/task-guard.test.ts && node --experimental-strip-types test/task-guard-cordis.test.ts && node --experimental-strip-types test/plugin.test.ts",
     "check": "pnpm typecheck && pnpm test && pnpm build",
     "prepare": "pnpm build"
   },

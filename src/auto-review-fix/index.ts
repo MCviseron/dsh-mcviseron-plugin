@@ -1,10 +1,10 @@
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import { installAutoReview } from '../components/auto-review/index.ts'
+import { installAutoReview } from '../components/auto-review-fix/index.ts'
 import { toPlain } from '../volatile.ts'
 
 /**
- * Auto-review component: shutdown preset guard + Chinese approval translation.
+ * Auto-review fix component: shutdown preset guard + Chinese approval translation.
  * The whole implementation lives in `components/auto-review`; this entry owns
  * the profile Config so the plugin inventory can list the component on its own.
  */

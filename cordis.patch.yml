@@ -1,13 +1,13 @@
 # dsh-mcviseron-plugin bundle patch: inserts one loader entry per component so
 # the DSH plugin inventory lists them individually:
-#   - appearance   (time-based light/dark; settings row + loopback bridge)
-#   - auto-review  (shutdown preset guard + Chinese approval translation)
-#   - task-guard   (todo plan notices)
+#   - appearance     (time-based light/dark; settings row + loopback bridge)
+#   - auto-review-fix (shutdown preset guard + Chinese approval translation)
+#   - task-guard     (todo plan notices)
 # Entry ids double as the DSH >= 0.2 settings namespaces.
 - insert:
     - id: mcviseron-appearance
       name: 'dsh-mcviseron-plugin/appearance'
-    - id: mcviseron-auto-review
-      name: 'dsh-mcviseron-plugin/auto-review'
+    - id: mcviseron-auto-review-fix
+      name: 'dsh-mcviseron-plugin/auto-review-fix'
     - id: mcviseron-task-guard
       name: 'dsh-mcviseron-plugin/task-guard'

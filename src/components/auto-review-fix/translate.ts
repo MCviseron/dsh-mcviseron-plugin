@@ -95,6 +95,11 @@ export function hasTranslation(value: string): boolean {
   return value.includes(TRANSLATION_LABEL)
 }
 
+/** Whether text already contains CJK characters, i.e. it needs no translation. */
+export function containsCjk(text: string): boolean {
+  return /[\u3400-\u9fff\uf900-\ufaff]/.test(text)
+}
+
 /** Drop wrapping quotes, fences, and stray whitespace a model may add. */
 export function cleanTranslation(raw: string): string {
   let text = raw.trim()

@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { Context } from '@deepseek-ai/cordis'
-import { clearTranslationCache, installAutoReview } from '../src/components/auto-review/index.ts'
+import { clearTranslationCache, installAutoReview } from '../src/components/auto-review-fix/index.ts'
 
 test.beforeEach(() => { clearTranslationCache() })
 

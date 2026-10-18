@@ -8,7 +8,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { Context } from '@deepseek-ai/cordis'
 import * as appearance from '../src/appearance/index.ts'
-import * as autoReview from '../src/auto-review/index.ts'
+import * as autoReview from '../src/auto-review-fix/index.ts'
 import * as taskGuard from '../src/task-guard/index.ts'
 import { MCVISERON_SETTINGS_NAMESPACE } from '../src/namespace.ts'
 

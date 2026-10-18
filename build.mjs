@@ -11,14 +11,15 @@ const sharedExternal = [
 ]
 
 await mkdir('lib', { recursive: true })
-// Remove the pre-0.3 aggregate output if an older build left it behind.
+// Remove outputs left behind by older layouts (pre-0.3 aggregate, pre-0.4 name).
 await rm('lib/index.js', { force: true })
+await rm('lib/auto-review.js', { force: true })
 
 // Host entries: one bundle per component, so the DSH plugin inventory lists
 // each component as its own loader entry (name: "dsh-mcviseron-plugin/<id>").
 const hostEntries = [
   ['src/appearance/index.ts', 'lib/appearance.js'],
-  ['src/auto-review/index.ts', 'lib/auto-review.js'],
+  ['src/auto-review-fix/index.ts', 'lib/auto-review-fix.js'],
   ['src/task-guard/index.ts', 'lib/task-guard.js'],
 ]
 for (const [entry, outfile] of hostEntries) {
@@ -80,4 +81,4 @@ const wrapped = [
 ].filter(line => line !== '').join('\n')
 
 await writeFile('lib/client.js', wrapped, 'utf8')
-console.log('built lib/appearance.js, lib/auto-review.js, lib/task-guard.js and lib/client.js')
+console.log('built lib/appearance.js, lib/auto-review-fix.js, lib/task-guard.js and lib/client.js')
