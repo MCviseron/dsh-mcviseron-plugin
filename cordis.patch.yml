@@ -1,0 +1,7 @@
+# dsh-mcviseron-plugin bundle patch: inserts the master plugin row into the
+# web profile roster. Every MCviseron component ships behind this one row, so
+# future components share one settings namespace and one lifecycle. The entry
+# id doubles as the DSH >= 0.2 settings namespace ("mcviseron").
+- insert:
+    - id: mcviseron
+      name: 'dsh-mcviseron-plugin'

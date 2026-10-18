@@ -1,0 +1,120 @@
+{
+  "name": "dsh-mcviseron-plugin",
+  "version": "0.1.0",
+  "description": "DeepSeek Harness (DSH) master plugin — one entry that hosts MCviseron's DSH components. First component: an Appearance option that switches light/dark by local wall-clock time (default light 08:00–23:00, dark otherwise) with a customizable window.",
+  "license": "Apache-2.0",
+  "author": {
+    "name": "MCviseron",
+    "email": "2563969462@qq.com",
+    "url": "https://github.com/MCviseron"
+  },
+  "homepage": "https://github.com/MCviseron/dsh-mcviseron-plugin#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MCviseron/dsh-mcviseron-plugin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MCviseron/dsh-mcviseron-plugin/issues"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "plugin",
+    "theme",
+    "appearance",
+    "light",
+    "dark",
+    "schedule"
+  ],
+  "packageManager": "pnpm@10.6.3",
+  "engines": {
+    "node": "^22.19.0 || >=24"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "src",
+    "cordis.patch.yml",
+    "README.md",
+    "README.en.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-locale"
+      ],
+      "platform": "web"
+    }
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types test/schedule.test.ts && node --experimental-strip-types test/routes.test.ts",
+    "check": "pnpm typecheck && pnpm test && pnpm build",
+    "prepare": "pnpm build"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.5"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-client-connection": "^0.2.0-rc.2 || ^0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-locale": "^0.2.0-rc.2 || ^0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings": "^0.2.0-rc.2 || ^0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.2.0-rc.2 || ^0.2.1-rc.2",
+    "@deepseek-ai/dsh-host-webserver": "^0.2.0-rc.2 || ^0.2.1-rc.2",
+    "@deepseek-ai/dsh-settings": "^0.2.0-rc.2 || ^0.2.1-rc.2",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": { "optional": true },
+    "@deepseek-ai/dsh-client-connection": { "optional": true },
+    "@deepseek-ai/dsh-client-locale": { "optional": true },
+    "@deepseek-ai/dsh-client-ui-settings": { "optional": true },
+    "@deepseek-ai/dsh-client-ui-slots": { "optional": true },
+    "@deepseek-ai/dsh-host-webserver": { "optional": true },
+    "@deepseek-ai/dsh-settings": { "optional": true },
+    "react": { "optional": true },
+    "react-dom": { "optional": true }
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.0",
+    "@types/react": "~18.3.1",
+    "@types/react-dom": "^18.3.5",
+    "esbuild": "^0.24.0",
+    "immer": "10.2.0",
+    "zustand": "4.4.7",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "~5.7.2",
+    "@deepseek-ai/cordis": "^4.0.5",
+    "@deepseek-ai/dsh-client-connection": "^0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-locale": "^0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-store": "^0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-renderer": "^0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings": "^0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.2.1-rc.2",
+    "@deepseek-ai/dsh-host-webserver": "^0.2.1-rc.2",
+    "@deepseek-ai/dsh-settings": "^0.2.1-rc.2"
+  }
+}
