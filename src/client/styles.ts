@@ -5,9 +5,7 @@ const labelSecondary = 'var(--dsw-alias-label-secondary, #5c6570)'
 const labelTertiary = 'var(--dsw-alias-label-tertiary, #8a919b)'
 const borderL2 = 'var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.08))'
 const fieldFill = 'var(--dsw-alias-bg-layer-1, rgba(0, 0, 0, 0.03))'
-const trackOff = 'var(--dsw-alias-bg-layer-3, rgba(0, 0, 0, 0.16))'
 const accent = 'var(--dsw-alias-state-business-primary, #4176e6)'
-const thumb = 'var(--dsw-alias-switch-thumb, #ffffff)'
 
 export const pageStyles: Record<string, CSSProperties> = {
   page: { display: 'flex', flexDirection: 'column', gap: 16, padding: '4px 0' },
@@ -67,7 +65,6 @@ export const pageStyles: Record<string, CSSProperties> = {
     fontSize: 12,
     fontFamily: 'inherit',
   },
-  formInline: { display: 'flex', alignItems: 'center', gap: 8 },
   formStatus: { fontSize: 11, lineHeight: '16px', color: labelTertiary },
 }
 
@@ -80,18 +77,6 @@ const buttonShape: CSSProperties = {
   fontSize: 12,
   fontFamily: 'inherit',
   cursor: 'pointer',
-}
-
-const thumbShape: CSSProperties = {
-  position: 'absolute',
-  top: 2,
-  left: 2,
-  width: 16,
-  height: 16,
-  borderRadius: '50%',
-  background: thumb,
-  boxShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
-  transition: 'transform 120ms ease',
 }
 
 /**
@@ -166,30 +151,4 @@ export const styles = {
   } satisfies CSSProperties,
   button: buttonShape,
   buttonDisabled: { ...buttonShape, opacity: 0.6, cursor: 'default' } satisfies CSSProperties,
-  switchOff: {
-    position: 'relative',
-    width: 36,
-    height: 20,
-    padding: 0,
-    border: 'none',
-    borderRadius: 999,
-    background: trackOff,
-    cursor: 'pointer',
-    transition: 'background 120ms ease',
-    flex: '0 0 auto',
-  } satisfies CSSProperties,
-  switchOn: {
-    position: 'relative',
-    width: 36,
-    height: 20,
-    padding: 0,
-    border: 'none',
-    borderRadius: 999,
-    background: accent,
-    cursor: 'pointer',
-    transition: 'background 120ms ease',
-    flex: '0 0 auto',
-  } satisfies CSSProperties,
-  thumbOff: thumbShape,
-  thumbOn: { ...thumbShape, transform: 'translateX(16px)' } satisfies CSSProperties,
 } as const

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { readPluginConfig, writePluginConfig } from './bridge.ts'
 import type { McviseronKey } from './locales.ts'
-import { pageStyles, styles } from './styles.ts'
+import { Switch } from '@deepseek-ai/dsh-client-ui-primitives'
+import { pageStyles } from './styles.ts'
 
 type Status = 'loading' | 'ready' | 'saving' | 'saved' | 'failed' | 'unavailable'
 type FieldKind = 'switch' | 'number' | 'text' | 'select' | 'list'
@@ -122,26 +123,15 @@ function renderControl(
   t: (key: McviseronKey) => string,
 ) {
   switch (field.kind) {
-    case 'switch': {
-      const checked = value === true
+    case 'switch':
       return (
-        <button
-          type="button"
-          role="switch"
-          aria-checked={checked}
-          aria-label={t(field.label)}
-          title={t(field.label)}
+        <Switch
+          checked={value === true}
+          label={t(field.label)}
           disabled={disabled}
-          onClick={() => { commit(!checked) }}
-          style={{
-            ...(checked ? styles.switchOn : styles.switchOff),
-            ...(disabled ? { opacity: 0.5, cursor: 'default' } : {}),
-          }}
-        >
-          <span style={checked ? styles.thumbOn : styles.thumbOff} />
-        </button>
+          onChange={(next) => { commit(next) }}
+        />
       )
-    }
     case 'number':
       return (
         <NumberControl

@@ -2,6 +2,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 import { formatTimeOfDay, nextTransition, parseTimeOfDay, periodAt } from '../schedule.ts'
 import type { ScheduleDriver } from './driver.ts'
 import type { McviseronKey } from './locales.ts'
+import { Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import { styles } from './styles.ts'
 
 /** Props composed by the `settings.general.item` slot. */
@@ -57,8 +58,8 @@ export function AppearanceScheduleRow({ t, driver }: AppearanceScheduleRowProps)
         ? t('status.saved')
         : ''
 
-  const toggle = (): void => {
-    void driver.update({ enabled: !config.enabled })
+  const toggle = (enabled: boolean): void => {
+    void driver.update({ enabled })
   }
 
   const changeTime = (field: 'lightStart' | 'lightEnd', value: string): void => {
@@ -99,17 +100,12 @@ export function AppearanceScheduleRow({ t, driver }: AppearanceScheduleRowProps)
             />
           </label>
         </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={config.enabled}
-          aria-label={config.enabled ? t('row.disable') : t('row.enable')}
+        <Switch
+          checked={config.enabled}
+          label={config.enabled ? t('row.disable') : t('row.enable')}
           title={config.enabled ? t('row.disable') : t('row.enable')}
-          onClick={toggle}
-          style={config.enabled ? styles.switchOn : styles.switchOff}
-        >
-          <span style={config.enabled ? styles.thumbOn : styles.thumbOff} />
-        </button>
+          onChange={(next) => { toggle(next) }}
+        />
       </div>
     </div>
   )

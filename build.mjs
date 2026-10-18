@@ -57,6 +57,7 @@ const client = await build({
     '@deepseek-ai/dsh-client-ui-settings/client',
     '@deepseek-ai/dsh-client-ui-renderer/client',
     '@deepseek-ai/dsh-client-connection/client',
+    '@deepseek-ai/dsh-client-ui-primitives',
   ],
   sourcemap: false,
   write: false,
