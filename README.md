@@ -35,10 +35,10 @@ MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包、一个 `
 ### 3. Todo 计划守卫
 
 - `todo_write` 后如果还有 `pending`、却没有 `in_progress`：附一条**建议性 notice**（默认不把写入变成错误）。
-- 连续 N 次成功工具调用没更新 todo：再附一条停滞 notice（默认 5 次后首发，之后每 4 次重复）。
+- 连续 N 次成功工具调用没更新 todo：再附一条停滞 notice（默认 5 次后首发，之后每 4 次重复）；如果只有一个进行中任务，notice 里直接给出「当前完成、下一阶段 in_progress」的 `todo_write` payload，不再写「请忽略本提醒」。
 - 都通过官方 `tools/post-execute` 的 `additionalContexts` 送达，不注册 system prompt 段落，不注入用户提示词。
 - 可选严格模式：`rejectMissingActive: true` 拒绝缺少 active 的写入；`blockAfterCalls: N` 在停滞过久时硬拦截下一次工具调用。
-- **步骤意图检测**（`detectStepIntent`）：监听官方 `agent/assistant-stream` 的 `text-delta` / `reasoning-delta`，识别「Now I will …」「接下来我会 …」「下一步 …」等句式，并与 `pending` todo 做 token 匹配。命中时附一条**定向 notice**（每条消息最多一次），里面带可直接发送的 `todo_write` JSON；不匹配、没有流、解析失败都静默跳过，**绝不阻塞任务**。
+- **步骤意图 + 阶段完成检测**（`detectStepIntent`）：监听官方 `agent/assistant-stream`，识别「Now I will …」「接下来…」「Now building the PCB」等步骤意图，以及「All 46 nets routed」「DRC passes clean」「原理图完成」等阶段完成语句。意图按中英文阶段关键词（schematic/原理图、routing/布线、DRC/校验 等）匹配 `pending` todo；完成语句匹配当前 `in_progress` todo。命中时附一条**定向 notice**（每条消息最多一次），带可直接发送的 `todo_write` JSON；不匹配、没有流、解析失败都静默跳过，**绝不阻塞任务**。
 - **中文 todo 展示**（`translateTodoContent`）：notice 里的英文 todo 标题会经 `llm` 批量翻译成「中文（English）」显示，按标题缓存、超时 3 秒可配；翻译失败就显示原文。notice 里还会提示「todo 内容可以直接用中文书写」。**只影响 notice 展示，不改写模型写入的 todo 列表**。
 - notice 的 source kind 按会话格式自动选择：v4 用 `plugin:task-guard`，v3 用 `plugin` + `plugin: 'task-guard'`。
 
@@ -194,7 +194,7 @@ DSH 0.2 的官方设置 apiproxy 不向浏览器暴露第三方命名空间，�
 
 | DSH 版本 | 状态 |
 | --- | --- |
-| `0.2.1-rc.2` | ✅ 本版本验证（desktop profile；75 项测试 + 真实 Cordis 上下文） |
+| `0.2.1-rc.2` | ✅ 本版本验证（desktop profile；80 项测试 + 真实 Cordis 上下文） |
 | `0.2.0-rc.x` | ✅ peer 范围覆盖（同一套设置、审批与 hook 接缝） |
 | `0.1.x` | ❌ 不支持：0.1 的插件自行注册设置命名空间，与本插件的条目 id 命名空间模型不同 |
 
@@ -260,7 +260,7 @@ test/
 
 ```bash
 pnpm install
-pnpm check     # typecheck + 75 项测试 + 构建
+pnpm check     # typecheck + 80 项测试 + 构建
 ```
 
 构建产物：`lib/index.js`（master ESM）、`lib/appearance.js`、`lib/auto-review-fix.js`、`lib/task-guard.js`、`lib/restart.js` 与 `lib/client.js`（浏览器模块）。`lib/` 不入库。

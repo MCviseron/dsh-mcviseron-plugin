@@ -109,7 +109,7 @@ Defaults: appearance off / `08:00–23:00`; auto-review both guards on, 6 s, 400
 
 | DSH version | Status |
 | --- | --- |
-| `0.2.1-rc.2` | ✅ verified (desktop profile; 75 tests + real Cordis contexts) |
+| `0.2.1-rc.2` | ✅ verified (desktop profile; 80 tests + real Cordis contexts) |
 | `0.2.0-rc.x` | ✅ covered by the peer range |
 | `0.1.x` | ❌ unsupported (different settings-namespace model) |
 

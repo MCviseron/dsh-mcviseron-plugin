@@ -37,8 +37,10 @@ export interface TaskGuardConfig {
   maxListItems?: number
   /**
    * Watch the assistant's streamed text/reasoning for a step-intent phrase
-   * ("Now I will …", "接下来我会 …") that matches a pending todo, and attach one
-   * targeted advisory notice per step. Defaults to `true`; advisory only.
+   * ("Now I will …", "接下来我会 …") or a phase-completion statement
+   * ("All nets routed", "DRC passes", "原理图完成") and attach one targeted
+   * advisory notice with a ready todo_write payload per step. Defaults to
+   * `true`; advisory only.
    */
   detectStepIntent?: boolean
   /** Translate English todo titles in notices into Chinese for display. Defaults to `true`. */
@@ -215,7 +217,10 @@ const INTENT_MARKERS: RegExp[] = [
   /\b(?:now|next|then)\s*,?\s*i(?:'ll| will| am going to|'m going to)\b([^\n]{2,160})/gi,
   /\bi(?:'ll| will| am going to|'m going to)\s+(?:now\s+)?([^\n]{2,160})/gi,
   /\blet me\s+(?:now\s+)?([^\n]{2,160})/gi,
+  /\b(?:now|next|then)\s+(?!i(?:'ll| will| am|'m)\b)([a-z][^\n]{2,160})/gi,
+  /\b(?:next step|next,)\s*[:\-]?\s*([^\n]{2,160})/gi,
   /(?:接下来|下一步|现在|然后|下面)(?:我会|我将|我要|我来|就开始|开始|准备)([^\n。；;]{2,120})/g,
+  /(?:接下来|下一步|现在|然后|下面)(?:开始|进行|做|处理|继续|检查|运行|绘制|布局|布线|导出|放置|连接)([^\n。；;]{2,120})/g,
 ]
 
 /** One matched step intent. */
@@ -242,9 +247,31 @@ function intentPhrases(text: string): string[] {
   return found.map(item => item.phrase)
 }
 
+/** Cross-language phase keywords used to match text to a todo. */
+const PHASE_PATTERNS: ReadonlyArray<{ id: string; pattern: RegExp }> = [
+  { id: 'schematic', pattern: /schematic|原理图/ },
+  { id: 'library', pattern: /library|footprint|器件库|元件库|封装/ },
+  { id: 'board', pattern: /board\s*(?:outline|shape)|板框|边框|外形/ },
+  { id: 'placement', pattern: /placement|layout|布局|摆放/ },
+  { id: 'routing', pattern: /rout(?:e|ing|ed)|track|走线|布线|连线/ },
+  { id: 'drc', pattern: /\bdrc\b|\berc\b|design[_ ]audit|校验|检查/ },
+  { id: 'power', pattern: /power|电源|加粗/ },
+  { id: 'copper', pattern: /copper|pour|铺铜|覆铜/ },
+  { id: 'gerber', pattern: /gerber|export|导出|出图/ },
+  { id: 'usb', pattern: /usb|type-?c/ },
+  { id: 'mcu', pattern: /stm32|\bmcu\b|主控|单片机/ },
+]
+
+function phasesOf(value: string): Set<string> {
+  const phases = new Set<string>()
+  for (const { id, pattern } of PHASE_PATTERNS) if (pattern.test(value)) phases.add(id)
+  return phases
+}
+
 /**
  * Match the last "Now I will ..." / "接下来我会 ..." phrase against pending
- * todos. Advisory only: the caller decides whether to attach a notice.
+ * todos. Cross-language phase keywords ("PCB" vs "板框", "DRC" vs "校验")
+ * carry a match even when the literal tokens differ. Advisory only.
  *
  * @param text - streamed assistant text/reasoning for the current step.
  * @param todos - the current plan.
@@ -258,11 +285,15 @@ export function detectStepIntent(text: string, todos: TodoItem[]): StepIntentMat
   for (const phrase of phrases) {
     const phraseNormalized = normalizeText(phrase)
     const phraseTokens = new Set(tokensOf(phrase))
+    const phrasePhases = phasesOf(phrase)
     for (const todo of todos) {
       if (todo.status !== 'pending') continue
       const contentNormalized = normalizeText(todo.content)
+      const todoPhases = phasesOf(todo.content)
       let score = 0
-      if (contentNormalized.length >= 4 && (phraseNormalized.includes(contentNormalized) || contentNormalized.includes(phraseNormalized))) {
+      if ([...phrasePhases].some(phase => todoPhases.has(phase))) {
+        score = 1
+      } else if (contentNormalized.length >= 4 && (phraseNormalized.includes(contentNormalized) || contentNormalized.includes(phraseNormalized))) {
         score = 1
       } else {
         const contentTokens = tokensOf(todo.content)
@@ -276,6 +307,86 @@ export function detectStepIntent(text: string, todos: TodoItem[]): StepIntentMat
     }
   }
   return best
+}
+
+/** Completion wording that normally closes a phase (not partial progress). */
+const COMPLETION_PATTERNS: readonly RegExp[] = [
+  /\ball\b[^.!?\n]{0,100}\b(?:routed|connected|placed|done|complete|completed)\b/i,
+  /\b(?:schematic|layout|placement|routing|board|design|work|check|drc|erc)\b[^.!?\n]{0,50}\b(?:complete|completed|done|finished|passed|passes|clean)\b/i,
+  /\b(?:drc|erc|check|validation)\b[^.!?\n]{0,40}\b(?:passes|passed|clean|0\s+(?:errors?|violations?))\b/i,
+  /(?:全部|所有)[^。！？\n]{0,50}(?:布通|连通|完成|通过)|(?:完成|已完成|搞定|通过|布通|连通|无(?:错误|违规)|0\s*(?:错误|违规))/,
+]
+
+function isCompletionSentence(sentence: string): boolean {
+  return COMPLETION_PATTERNS.some(pattern => pattern.test(sentence))
+}
+
+/**
+ * Detect a completed phase from the assistant's own wording. With one active
+ * task, match that task; without one, match a pending task whose phase
+ * keywords occur in the sentence. Partial progress ("44/46 routed") does not
+ * match.
+ *
+ * @param text - streamed assistant text/reasoning for the current step.
+ * @param todos - the current plan.
+ * @returns the matched todo and the sentence that announced completion.
+ */
+export function detectCompletion(text: string, todos: TodoItem[]): { todo: TodoItem; phrase: string; score: number } | undefined {
+  if (text.length === 0 || todos.length === 0) return undefined
+  const active = todos.filter(todo => todo.status === 'in_progress')
+  if (active.length > 1) return undefined
+  const pool = active.length === 1 ? active : todos.filter(todo => todo.status === 'pending')
+  if (pool.length === 0) return undefined
+  const sentences = text.split(/(?<=[.!?。！？])\s+|\n+/).map(sentence => sentence.trim()).filter(sentence => sentence.length > 0)
+  for (const sentence of sentences) {
+    if (!isCompletionSentence(sentence)) continue
+    const sentencePhases = phasesOf(sentence)
+    let best: TodoItem | undefined
+    let bestScore = 0
+    for (const todo of pool) {
+      const todoPhases = phasesOf(todo.content)
+      let score = 0
+      for (const phase of sentencePhases) if (todoPhases.has(phase)) score += 1
+      if (score > bestScore) {
+        best = todo
+        bestScore = score
+      }
+    }
+    if (best === undefined && active.length === 1 && sentencePhases.size === 0) {
+      best = active[0]
+      bestScore = 0.5
+    }
+    if (best !== undefined) return { todo: best, phrase: sentence.slice(0, 120), score: bestScore }
+  }
+  return undefined
+}
+
+/**
+ * Build a complete todo_write payload for a finished task: mark it completed,
+ * mark the next pending task in_progress, and keep every other status.
+ *
+ * @param todos - the current plan.
+ * @param matched - the task the completion sentence refers to.
+ * @returns the JSON payload, or undefined when more than one task is active.
+ */
+export function completionPayload(todos: TodoItem[], matched: TodoItem): string | undefined {
+  const active = todos.filter(todo => todo.status === 'in_progress')
+  if (active.length > 1) return undefined
+  const index = todos.findIndex(todo => todo.content === matched.content)
+  if (index < 0) return undefined
+  const next = todos.find((todo, at) => at > index && todo.status === 'pending')
+    ?? todos.find((todo, at) => at !== index && todo.status === 'pending')
+  const updated = todos.map((todo, at) => ({
+    content: todo.content,
+    status: at === index
+      ? 'completed' as const
+      : next !== undefined && todo.content === next.content
+        ? 'in_progress' as const
+        : todo.status === 'in_progress' && at !== index
+          ? 'completed' as const
+          : todo.status,
+  }))
+  return JSON.stringify({ todos: updated })
 }
 
 /** Display translation settings for one notice. */
@@ -511,7 +622,20 @@ export function installTaskGuard(ctx: Context, input?: TaskGuardConfig): void {
     // A "Now I will ..." / "接下来我会 ..." phrase that matches a pending todo is
     // the strongest signal that the plan drifted; one advisory notice per step.
     if (config.detectStepIntent && !state.intentNotifiedThisStep) {
-      const match = detectStepIntent(intentBuffers.get(sessionId) ?? '', state.todos)
+      const buffer = intentBuffers.get(sessionId) ?? ''
+      const completed = detectCompletion(buffer, state.todos)
+      if (completed !== undefined) {
+        state.intentNotifiedThisStep = true
+        const notice = await buildCompletionNotice(
+          state,
+          completed,
+          config,
+          sourceKindFor(exec.agent, config),
+          noticeContext(exec.agent, config, ctx),
+        )
+        return attachContext(downstream, notice)
+      }
+      const match = detectStepIntent(buffer, state.todos)
       if (match !== undefined) {
         state.intentNotifiedThisStep = true
         const notice = await buildIntentNotice(
@@ -811,26 +935,77 @@ async function buildReminder(
   const omitted = remaining.length - config.maxListItems
   const items = omitted > 0 ? quoted + '\n… +' + omitted : quoted
 
+  const activeOne = active.length === 1 ? active[0] : undefined
+  const suggested = activeOne === undefined ? undefined : completionPayload(todos, activeOne)
+
   const text = config.locale === 'en'
     ? [
         '[Todo sync] ' + state.callsSinceWrite + ' tool calls have run since the last todo_write.',
         'In progress: ' + activeText,
         'Remaining:\n' + items,
-        'If the current phase is not finished yet, ignore this reminder. The moment it is finished, call todo_write: mark it completed and the next task in_progress (never leave pending work with no active task).',
+        activeOne === undefined
+          ? 'If the current phase is finished, call todo_write: mark completed work completed and the next task in_progress (never leave pending work with no active task).'
+          : suggested === undefined
+            ? 'If the current phase is finished, call todo_write: mark it completed and the next task in_progress (never leave pending work with no active task).'
+            : 'If the current phase is finished, send this todo_write now; if it is still running, keep that task in_progress and leave the list unchanged:',
+        suggested ?? '',
         '(Tip: todo titles can be written in Chinese.)',
-      ].join('\n')
+      ].filter(line => line !== '').join('\n')
     : [
         '【todo 同步】距上次 todo_write 已过 ' + state.callsSinceWrite + ' 次工具调用。',
         '进行中：' + activeText,
         '剩余：\n' + items,
-        '如果当前阶段还没完成，请忽略本提醒；一旦完成，请立刻调用 todo_write：把该阶段标为 completed，并把下一阶段标为 in_progress（有剩余任务时不要留空）。',
+        activeOne === undefined
+          ? '如果当前阶段已经完成，请调用 todo_write：把已完成阶段标为 completed，并把下一阶段标为 in_progress（有剩余任务时不要留空）。'
+          : suggested === undefined
+            ? '如果当前阶段已经完成，请调用 todo_write：把该阶段标为 completed，并把下一阶段标为 in_progress（有剩余任务时不要留空）。'
+            : '如果当前阶段已经完成，请直接发送以下 todo_write；如果仍在进行，请保持该待办为 in_progress，无需改动清单：',
+        suggested ?? '',
         '（提示：todo 内容可以直接用中文书写。）',
-      ].join('\n')
+      ].filter(line => line !== '').join('\n')
 
   const summary = config.locale === 'en'
     ? 'todo stale · ' + state.callsSinceWrite + ' calls'
     : 'todo 未更新 · ' + state.callsSinceWrite + ' 次调用'
 
+  return createNotice(text, summary, sourceKind)
+}
+
+async function buildCompletionNotice(
+  state: SessionState,
+  match: { todo: TodoItem; phrase: string },
+  config: ResolvedConfig,
+  sourceKind: 'v3' | 'v4',
+  context: NoticeContext,
+): Promise<NoticeMessage> {
+  const todos = state.todos ?? []
+  const [display] = await displayTodoContents([match.todo.content], context)
+  const suggested = completionPayload(todos, match.todo)
+  const phrase = truncate(match.phrase, 80)
+  const text = config.locale === 'en'
+    ? [
+        '[Todo sync] The assistant text looks like a completed phase: "' + display + '".',
+        'Source: ' + phrase,
+        suggested === undefined
+          ? 'If that phase is finished, call todo_write: mark it completed and the next task in_progress.'
+          : 'If that phase is finished, send this todo_write now:',
+        suggested ?? '',
+        'If it is still running, keep that task in_progress; do not mark it completed yet.',
+        '(Tip: todo titles can be written in Chinese.)',
+      ].filter(line => line !== '').join('\n')
+    : [
+        '【todo 同步】检测到阶段完成：「' + display + '」',
+        '依据：' + phrase,
+        suggested === undefined
+          ? '如果该阶段已完成，请调用 todo_write：把该待办标为 completed，并把下一阶段标为 in_progress。'
+          : '如果该阶段确实已完成，请直接发送以下 todo_write：',
+        suggested ?? '',
+        '如果仍在进行，请保持该待办为 in_progress，不要提前标 completed。',
+        '（提示：todo 内容可以直接用中文书写。）',
+      ].filter(line => line !== '').join('\n')
+  const summary = config.locale === 'en'
+    ? 'todo complete · ' + truncate(display, 40)
+    : 'todo 完成 · ' + truncate(display, 40)
   return createNotice(text, summary, sourceKind)
 }
 

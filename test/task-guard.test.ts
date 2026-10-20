@@ -8,7 +8,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { Context } from '@deepseek-ai/cordis'
-import { detectStepIntent, installTaskGuard, type TaskGuardConfig } from '../src/components/task-guard/index.ts'
+import { completionPayload, detectCompletion, detectStepIntent, installTaskGuard, type TaskGuardConfig } from '../src/components/task-guard/index.ts'
 
 const agent = { session: { id: 'session-1' } }
 
@@ -233,4 +233,53 @@ test('translates English todo titles into Chinese inside a notice', async () => 
   const decision = await h.post(write(list, owner))
   const [notice] = decision.additionalContexts
   assert.match(notice.content[0].text, /编写部署文档（Write deployment docs）/)
+})
+
+test('completion detection matches a finished routing phase and builds a payload', () => {
+  const todos = [
+    todo('PCB 自动布线', 'in_progress'),
+    todo('电源网络加粗 + GND 铺铜', 'pending'),
+    todo('导出 Gerber', 'pending'),
+  ] as any
+  const match = detectCompletion('All 46 nets routed, no overlaps.', todos)
+  assert.equal(match?.todo.content, 'PCB 自动布线')
+  const payload = JSON.parse(completionPayload(todos, match!.todo) ?? '')
+  assert.deepEqual(payload.todos.map((item: any) => item.status), ['completed', 'in_progress', 'pending'])
+})
+
+test('completion detection ignores partial progress and catches DRC completion', () => {
+  const todos = [
+    todo('PCB 自动布线', 'in_progress'),
+    todo('PCB 校验：DRC + design_audit', 'pending'),
+  ] as any
+  assert.equal(detectCompletion('44/46 nets routed. Let me finish the rest.', todos), undefined)
+  const match = detectCompletion('DRC passes clean.', [{ content: 'PCB 校验：DRC + design_audit', status: 'in_progress' }] as any)
+  assert.equal(match?.todo.content, 'PCB 校验：DRC + design_audit')
+})
+
+test('intent phase aliases match terse Now-building-PCB commentary', () => {
+  const todos = [
+    todo('原理图：网络/电源旗标与连线', 'in_progress'),
+    todo('同步到 PCB 并绘制板框', 'pending'),
+  ] as any
+  const match = detectStepIntent('Now building the PCB: board outline + placement.', todos)
+  assert.equal(match?.todo.content, '同步到 PCB 并绘制板框')
+})
+
+test('completion notice arrives with a ready todo_write payload', async () => {
+  const h = harness({ locale: 'zh', staleAfterCalls: 99 })
+  await seed(h, [todo('PCB 自动布线', 'in_progress'), todo('电源网络加粗 + GND 铺铜', 'pending')])
+  h.stream({ type: 'chunk', attemptId: 'session-1:1', chunk: { type: 'text-delta', text: 'All 46 nets routed, no overlaps.' } })
+  const decision = await h.post(call('pcb_save_document'))
+  const [notice] = decision.additionalContexts
+  assert.match(notice.content[0].text, /阶段完成/)
+  assert.match(notice.content[0].text, /"status":"in_progress"/)
+})
+
+test('stale reminder offers a payload instead of telling the model to ignore it', async () => {
+  const h = harness({ locale: 'zh', staleAfterCalls: 1, repeatEveryCalls: 0 })
+  await seed(h, [todo('A', 'in_progress'), todo('B', 'pending')])
+  const [notice] = (await h.post(call('read'))).additionalContexts
+  assert.doesNotMatch(notice.content[0].text, /忽略本提醒/)
+  assert.match(notice.content[0].text, /"status":"completed"/)
 })

@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **Todo 守卫更新不顺畅**：新增**阶段完成检测**，从 agent/assistant-stream 的正文/思考中识别「All 46 nets routed」「DRC passes clean」「原理图完成」等完成语句，并用中英文阶段关键词（schematic/原理图、routing/布线、DRC/校验 等）匹配当前 in_progress todo；命中时附一条带可直接发送 todo_write JSON 的定向 notice（每步最多一次）。
+- **停滞提醒更可执行**：不再写「请忽略本提醒」；只有一个进行中任务时，notice 直接给出「当前阶段 completed、下一阶段 in_progress」的 payload，模型只需原样发送。
+- 合计 **80 项测试**。
+
 ### 计划中
 
 - 将「按时间切换」扩展为多时段表（例如白天的多个浅色窗口）。
