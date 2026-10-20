@@ -4,6 +4,7 @@
  * `node --experimental-strip-types test/restart.test.ts`
  */
 import assert from 'node:assert/strict'
+import { join, resolve } from 'node:path'
 import { Readable } from 'node:stream'
 import test from 'node:test'
 import { deriveDesktopAppPath, makeRestartRoutes, makeTaskScript, RESTART_API, resolveRestartTarget, type RestartTarget } from '../src/restart/index.ts'
@@ -11,7 +12,7 @@ import { deriveDesktopAppPath, makeRestartRoutes, makeTaskScript, RESTART_API, r
 const exists = (path: string) => path === 'D:/DeepSeek Harness/DeepSeek Harness.exe'
 
 test('resolveRestartTarget accepts the desktop executable', () => {
-  const target = resolveRestartTarget('D:/DeepSeek Harness/DeepSeek Harness.exe', 4242, exists)
+  const target = resolveRestartTarget('D:/DeepSeek Harness/DeepSeek Harness.exe', 4242, exists, '', [], 'win32')
   assert.deepEqual(target, {
     mainPid: 4242,
     hostPid: process.pid,
@@ -20,13 +21,13 @@ test('resolveRestartTarget accepts the desktop executable', () => {
 })
 
 test('resolveRestartTarget rejects node hosts, missing files, and missing parents', () => {
-  assert.equal(resolveRestartTarget('C:/node/node.exe', 4242, () => true), undefined)
-  assert.equal(resolveRestartTarget('D:/DeepSeek Harness/DeepSeek Harness.exe', 0, exists), undefined)
-  assert.equal(resolveRestartTarget('D:/missing.exe', 4242, exists), undefined)
+  assert.equal(resolveRestartTarget('C:/node/node.exe', 4242, () => true, '', [], 'win32'), undefined)
+  assert.equal(resolveRestartTarget('D:/DeepSeek Harness/DeepSeek Harness.exe', 0, exists, '', [], 'win32'), undefined)
+  assert.equal(resolveRestartTarget('D:/missing.exe', 4242, exists, '', [], 'win32'), undefined)
 })
 
 test('resolveRestartTarget honours an explicit appPath override', () => {
-  const target = resolveRestartTarget('C:/node/node.exe', 7, (path) => path === 'D:/Custom/app.exe', ' D:/Custom/app.exe ')
+  const target = resolveRestartTarget('C:/node/node.exe', 7, (path) => path === 'D:/Custom/app.exe', ' D:/Custom/app.exe ', [], 'win32')
   assert.equal(target?.exePath, 'D:/Custom/app.exe')
 })
 
@@ -36,15 +37,16 @@ test('resolveRestartTarget is Windows-only', () => {
 })
 
 test('resolveRestartTarget tolerates a leaked volatile override', () => {
-  const target = resolveRestartTarget('D:/tools/DeepSeek Harness.exe', 1234, () => true, { get: () => '' } as any)
+  const target = resolveRestartTarget('D:/tools/DeepSeek Harness.exe', 1234, () => true, { get: () => '' } as any, [], 'win32')
   assert.deepEqual(target, { mainPid: 1234, hostPid: process.pid, exePath: 'D:/tools/DeepSeek Harness.exe' })
 })
 
 test('deriveDesktopAppPath recovers the desktop exe from the runtime directory', () => {
-  const argv = ['C:/node/node.exe', '--expose-internals', 'D:/DeepSeek Harness/resources/app.asar/dsh', 'C:/profile']
-  const app = 'D:\\DeepSeek Harness\\DeepSeek Harness.exe'
+  const runtimeDir = 'D:/DeepSeek Harness/resources/app.asar/dsh'
+  const app = join(resolve(runtimeDir, '../../..'), 'DeepSeek Harness.exe')
+  const argv = ['C:/node/node.exe', '--expose-internals', runtimeDir, 'C:/profile']
   assert.equal(deriveDesktopAppPath('C:/node/node.exe', argv, (path) => path === app), app)
-  assert.equal(deriveDesktopAppPath('D:/DeepSeek Harness/DeepSeek Harness.exe', argv, () => true), 'D:/DeepSeek Harness/DeepSeek Harness.exe')
+  assert.equal(deriveDesktopAppPath(app, argv, () => true), app)
 })
 
 test('makeTaskScript schedules the application executable directly', () => {
