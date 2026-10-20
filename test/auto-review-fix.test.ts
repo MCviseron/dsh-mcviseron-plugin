@@ -27,6 +27,7 @@ type Services = Record<string, any>
 /** Fake host context: exposes services as properties and runs inject callbacks inline. */
 function fakeHost(services: Services, root: any = { fiber: { state: ACTIVE } }) {
   const effects: string[] = []
+  const handlers = new Map<string, Array<(...args: any[]) => any>>()
   const ctx: any = {
     root,
     effect(body: () => () => void, label: string) {
@@ -40,9 +41,15 @@ function fakeHost(services: Services, root: any = { fiber: { state: ACTIVE } }) 
       if (deps.every((name) => services[name] !== undefined)) callback(ctx)
       return ctx
     },
+    on(event: string, handler: (...args: any[]) => any) {
+      const list = handlers.get(event) ?? []
+      list.push(handler)
+      handlers.set(event, list)
+      return () => {}
+    },
     ...services,
   }
-  return { ctx: ctx as Context, raw: ctx, effects }
+  return { ctx: ctx as Context, raw: ctx, effects, handlers }
 }
 
 function approvalOf(ctx: Context): { request: (request: unknown) => Promise<unknown> } {
@@ -51,7 +58,13 @@ function approvalOf(ctx: Context): { request: (request: unknown) => Promise<unkn
 
 /** Session header the approval request would carry. */
 function routedAgent(provider = 'deepseek-official', model = 'deepseek-flash') {
-  return { session: { requestHeader: () => ({ config: { provider, model } }) } }
+  return {
+    session: {
+      id: 'session-1',
+      header: { version: 4 },
+      requestHeader: () => ({ config: { provider, model } }),
+    },
+  }
 }
 
 /** An LLM whose stream yields one text block. */
@@ -299,4 +312,43 @@ test('config defaults and clamping', () => {
 
   assert.equal(normalizeConfig(null).enabled, true)
   assert.equal(normalizeConfig([1, 2]).enabled, true)
+})
+
+test('manual rejection relays the auto-review reason to the agent', async () => {
+  const approval = { request: async () => 'rejected' }
+  const { ctx, handlers } = fakeHost({ approval })
+  installAutoReview(ctx)
+  const request = autoReviewRequest()
+
+  assert.equal(await approvalOf(ctx).request(request), 'rejected')
+
+  const listener = handlers.get('tools/post-execute')?.[0]
+  assert.ok(listener)
+  const decision = await listener!({ callId: 'call-1', agent: request.agent }, { isError: true }, async () => ({ kind: 'accept' }))
+  const notice = decision.additionalContexts?.[0]
+  assert.equal(notice.source.kind, 'plugin:auto-review-fix')
+  assert.match(notice.content[0].text, /人工审批被拒绝/)
+  assert.match(notice.content[0].text, /deletes pre-existing production rows/)
+})
+
+test('the rejection relay ignores non-auto-review approvals and allowed outcomes', async () => {
+  const approval = { request: async () => 'rejected' }
+  const { ctx, handlers } = fakeHost({ approval })
+  installAutoReview(ctx)
+  const request = { agent: routedAgent(), toolName: 'write', callId: 'call-2', reason: 'sandbox escalation' }
+  await approvalOf(ctx).request(request)
+
+  const listener = handlers.get('tools/post-execute')?.[0]
+  assert.ok(listener)
+  const decision = await listener!({ callId: 'call-2', agent: request.agent }, { isError: true }, async () => ({ kind: 'accept' }))
+  assert.equal(decision.additionalContexts, undefined)
+
+  const allowed = { request: async () => 'allowed-once' }
+  const other = fakeHost({ approval: allowed })
+  installAutoReview(other.ctx)
+  await approvalOf(other.ctx).request(autoReviewRequest())
+  const allowedListener = other.handlers.get('tools/post-execute')?.[0]
+  assert.ok(allowedListener)
+  const allowedDecision = await allowedListener!({ callId: 'call-1', agent: autoReviewRequest().agent }, { isError: true }, async () => ({ kind: 'accept' }))
+  assert.equal(allowedDecision.additionalContexts, undefined)
 })

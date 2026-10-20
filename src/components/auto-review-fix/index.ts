@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
 import {
   chineseKey,
@@ -232,7 +233,138 @@ export async function decorateApprovalRequest(
 }
 
 /** Guard the approval seam so the escalation prompt carries a translation. */
-function installApprovalTranslation(ctx: Context, settings: AutoReviewSettings): void {
+/** One notice waiting for the denied tool's post-execute pass. */
+interface RejectionNotice {
+  id: string
+  role: 'user'
+  content: [{ type: 'text'; text: string }]
+  source: Record<string, unknown>
+}
+
+interface RejectionRelay {
+  remember(key: string, notice: RejectionNotice): void
+  take(key: string): RejectionNotice | undefined
+}
+
+/** Session id of an approval request / tool execution. */
+function sessionIdOf(agent: unknown): string {
+  const session = (agent as { session?: { id?: unknown } } | undefined)?.session
+  return typeof session?.id === 'string' ? session.id : ''
+}
+
+/** DSH session format version, when the agent exposes it. */
+function sessionVersion(agent: unknown): number | undefined {
+  const version = (agent as { session?: { header?: { version?: unknown } } } | undefined)?.session?.header?.version
+  return typeof version === 'number' ? version : undefined
+}
+
+function rejectionKey(agent: unknown, callId: unknown): string {
+  if (typeof callId !== 'string' || callId === '') return ''
+  const sessionId = sessionIdOf(agent)
+  return sessionId === '' ? '' : sessionId + ':' + callId
+}
+
+/** The localized reviewer reason, falling back to the audited text. */
+function approvalReasonText(request: unknown): string {
+  const record = request as { reason?: unknown; displayReason?: unknown }
+  const display = record.displayReason
+  if (display !== null && typeof display === 'object' && !Array.isArray(display)) {
+    const key = chineseKey(display as LocaleText)
+    if (key !== undefined) {
+      const value = (display as Record<string, unknown>)[key]
+      if (typeof value === 'string' && value !== '') return value
+    }
+    const english = englishText(display as LocaleText)
+    if (english !== undefined && english !== '') return english
+  }
+  return typeof record.reason === 'string' ? record.reason : ''
+}
+
+/** Whether this approval is the Auto-review denial that became manual approval. */
+function isAutoReviewApproval(request: unknown): boolean {
+  const record = request as { reason?: unknown; displayReason?: unknown }
+  if (typeof record.reason === 'string' && isAutoReviewText(record.reason)) return true
+  const display = record.displayReason
+  if (display !== null && typeof display === 'object' && !Array.isArray(display)) {
+    const english = englishText(display as LocaleText)
+    if (english !== undefined && isAutoReviewText(english)) return true
+  }
+  return false
+}
+
+function rejectionSource(agent: unknown, summary: string): Record<string, unknown> {
+  return sessionVersion(agent) === 3
+    ? { kind: 'plugin', plugin: 'auto-review-fix', form: 'notice', summary }
+    : { kind: 'plugin:auto-review-fix', form: 'notice', summary }
+}
+
+function buildRejectionNotice(agent: unknown, request: unknown): RejectionNotice | undefined {
+  const reason = approvalReasonText(request)
+  if (reason === '') return undefined
+  const toolName = typeof (request as { toolName?: unknown }).toolName === 'string' && (request as { toolName: string }).toolName !== ''
+    ? (request as { toolName: string }).toolName
+    : '未知工具'
+  const text = [
+    '【审批被拒】工具 "' + toolName + '" 的人工审批被拒绝。',
+    '自动审查理由：',
+    reason,
+    '',
+    '请根据该理由调整方案，不要重复同一操作。',
+  ].join('\n')
+  return {
+    id: randomUUID(),
+    role: 'user',
+    content: [{ type: 'text', text }],
+    source: rejectionSource(agent, '审批被拒 · ' + toolName),
+  }
+}
+
+function createRejectionRelay(): RejectionRelay {
+  const notes = new Map<string, { notice: RejectionNotice; at: number }>()
+  const ttl = 120_000
+  return {
+    remember(key, notice) {
+      const now = Date.now()
+      for (const [oldKey, entry] of notes) if (now - entry.at > ttl) notes.delete(oldKey)
+      if (notes.size >= 50) {
+        const oldest = notes.keys().next().value
+        if (oldest !== undefined) notes.delete(oldest)
+      }
+      notes.set(key, { notice, at: now })
+    },
+    take(key) {
+      const entry = notes.get(key)
+      if (entry === undefined) return undefined
+      notes.delete(key)
+      return entry.notice
+    },
+  }
+}
+
+const relayedContexts = new WeakSet<object>()
+
+function installRejectionRelay(ctx: Context, relay: RejectionRelay): void {
+  const target = ctx as unknown as { on?: (event: string, handler: (...args: any[]) => any) => unknown }
+  if (typeof target.on !== 'function' || relayedContexts.has(ctx as unknown as object)) return
+  relayedContexts.add(ctx as unknown as object)
+  target.on.call(ctx, 'tools/post-execute', async (exec: any, result: any, next: () => Promise<any>) => {
+    const downstream = (await next()) ?? { kind: 'accept' }
+    if (result?.isError !== true) return downstream
+    const key = rejectionKey(exec?.agent, exec?.callId)
+    if (key === '') return downstream
+    const notice = relay.take(key)
+    if (notice === undefined) return downstream
+    return {
+      ...downstream,
+      additionalContexts: [
+        ...(Array.isArray(downstream.additionalContexts) ? downstream.additionalContexts : []),
+        notice,
+      ],
+    }
+  })
+}
+
+function installApprovalTranslation(ctx: Context, settings: AutoReviewSettings, relay: RejectionRelay): void {
   whenService(ctx, 'approval', (scope) => {
     const approval = serviceOf(scope, 'approval') as { request?: unknown } | undefined
     if (approval === null || typeof approval !== 'object') return
@@ -247,7 +379,14 @@ function installApprovalTranslation(ctx: Context, settings: AutoReviewSettings):
       } catch {
         decorated = request
       }
-      return call.call(this, decorated)
+      const outcome = await call.call(this, decorated)
+      if (outcome === 'rejected' && isAutoReviewApproval(decorated)) {
+        const request = decorated as { agent?: unknown; callId?: unknown }
+        const key = rejectionKey(request.agent, request.callId)
+        const notice = buildRejectionNotice(request.agent, decorated)
+        if (key !== '' && notice !== undefined) relay.remember(key, notice)
+      }
+      return outcome
     }
     try {
       approval.request = wrapper
@@ -270,7 +409,11 @@ function installApprovalTranslation(ctx: Context, settings: AutoReviewSettings):
 export function installAutoReview(ctx: Context, config?: unknown): void {
   const settings = normalizeConfig(config)
   if (settings.keepPresetGuard) installPresetGuard(ctx)
-  if (settings.enabled) installApprovalTranslation(ctx, settings)
+  if (settings.enabled) {
+    const relay = createRejectionRelay()
+    installRejectionRelay(ctx, relay)
+    installApprovalTranslation(ctx, settings, relay)
+  }
 }
 
 /** Test seam: forget every cached display translation. */

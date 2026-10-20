@@ -8,7 +8,8 @@
 
 - **Todo 守卫更新不顺畅**：新增**阶段完成检测**，从 agent/assistant-stream 的正文/思考中识别「All 46 nets routed」「DRC passes clean」「原理图完成」等完成语句，并用中英文阶段关键词（schematic/原理图、routing/布线、DRC/校验 等）匹配当前 in_progress todo；命中时附一条带可直接发送 todo_write JSON 的定向 notice（每步最多一次）。
 - **停滞提醒更可执行**：不再写「请忽略本提醒」；只有一个进行中任务时，notice 直接给出「当前阶段 completed、下一阶段 in_progress」的 payload，模型只需原样发送。
-- 合计 **80 项测试**。
+- **转手动审批被拒理由回传**：auto-review-fix 在 `approval.request` 返回 `rejected` 且属于 Auto review 时，把自动审查理由（含译文）作为 `plugin:auto-review-fix` notice 附到该工具结果的 `additionalContexts`；AI 下一次能看到被拒理由。DSH 审批面板没有人类理由输入，因此回传的是自动审查理由。
+- 合计 **82 项测试**。
 
 ### 计划中
 
