@@ -38,7 +38,7 @@
 3. 若发布了新版本：
    a. 执行 pnpm install，把 @deepseek-ai/dsh-client-connection、dsh-client-locale、dsh-client-ui-settings、dsh-client-ui-slots、dsh-client-ui-renderer、dsh-host-webserver、dsh-settings、@deepseek-ai/cordis 的开发依赖升级到与最新 DSH 相同版本，并更新 peerDependencies 范围。
    b. 对照最新包的类型声明与 lib 实现，按组件逐层修复不兼容处（先 Host 设置桥，再 autoReview、taskGuard，最后浏览器外观行）。
-   c. 执行 pnpm check（tsc --noEmit + 82 项 node 测试 + esbuild 构建），补齐或修正测试；必要时更新 test/plugin.test.ts 的装配断言。
+   c. 执行 pnpm check（tsc --noEmit + 83 项 node 测试 + esbuild 构建），补齐或修正测试；必要时更新 test/plugin.test.ts 的装配断言。
    d. 更新 CHANGELOG.md（新版本段落记录兼容版本与修复）、README.md / README.en.md 的兼容性表；提交并推送到 main。
 4. 不要执行 npm publish；不要重启或关闭正在运行的 DSH；不要修改 D:\Program\DSH-Plugin-Class 下的其他插件仓库。
 

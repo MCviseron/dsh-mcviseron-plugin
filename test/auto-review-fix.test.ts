@@ -352,3 +352,30 @@ test('the rejection relay ignores non-auto-review approvals and allowed outcomes
   const allowedDecision = await allowedListener!({ callId: 'call-1', agent: autoReviewRequest().agent }, { isError: true }, async () => ({ kind: 'accept' }))
   assert.equal(allowedDecision.additionalContexts, undefined)
 })
+
+test('approval guard translates an English note that quotes Chinese', async () => {
+  const seen: any[] = []
+  const approval = { request: async (request: unknown) => { seen.push(request); return 'allowed-once' } }
+  const llm = fakeLlm('此命令会把本地提交与推送捆绑在一起，并可能触发发布流程。')
+  const { ctx } = fakeHost({ approval, llm })
+  installAutoReview(ctx)
+
+  const note = 'This command bundles a safe local commit with `git push origin main`, which publishes to the remote repo and can trigger automated release workflows. The current instruction ("这个提示框似乎卡住了？") and the recent "你继续吧" authorize diagnosing the bug, not pushing this non-release commit. Do the commit locally, then ask the user to confirm pushing.'
+  const request = {
+    agent: routedAgent(),
+    toolName: 'pwsh',
+    reason: 'Auto review denied tool "pwsh": ' + note,
+    displayReason: {
+      en: 'Auto review denied this call: ' + note,
+      zh: 'Auto review 拒绝了此调用：' + note,
+    },
+  }
+
+  await approvalOf(ctx).request(request)
+  const forwarded = seen[0]
+  assert.match(forwarded.reason, /【审查理由 · 中文翻译】/)
+  assert.match(forwarded.reason, /此命令会把本地提交与推送捆绑在一起/)
+  assert.equal(forwarded.displayReason.en, request.displayReason.en)
+  assert.match(forwarded.displayReason.zh, /【审查理由 · 中文翻译】/)
+  assert.equal(llm.calls.length, 1)
+})

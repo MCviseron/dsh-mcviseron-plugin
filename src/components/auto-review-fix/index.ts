@@ -4,7 +4,7 @@ import {
   chineseKey,
   cleanTranslation,
   clearTranslationCache,
-  containsCjk,
+  isPredominantlyChinese,
   englishText,
   hasTranslation,
   isAutoReviewText,
@@ -209,8 +209,9 @@ export async function decorateApprovalRequest(
   const excerpt = reviewerExcerpt(english)
   if (excerpt.length === 0 || excerpt.length > settings.maxChars) return request
   // The reviewer already wrote this note in Chinese: appending a "translation"
-  // would duplicate the same text, so leave the prompt untouched.
-  if (containsCjk(excerpt)) return request
+  // would duplicate the same text. A few quoted Chinese instructions or a
+  // Windows path inside an English note are not predominantly Chinese.
+  if (isPredominantlyChinese(excerpt)) return request
   if (translationRoute(settings, request) === undefined) return request
 
   const llm = serviceOf(scope, 'llm') as { stream?: (options: unknown) => unknown } | undefined

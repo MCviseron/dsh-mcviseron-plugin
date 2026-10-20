@@ -31,7 +31,7 @@ MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包、一个 `
 
 翻译使用当前会话的 provider/model 再发一次短请求（可选固定 provider/model），按原文缓存（进程内，上限 256），超时 6 秒可配。**任何失败都原样放行审批**：没有 `llm`、没有会话路由、宿主没有 `displayReason`、超时、模型报错——都不会阻塞审批，也不会改写审查文本。
 
-审查理由本身已经是中文（含任意 CJK 字符）时**不会再翻译**，审批卡片保持原样；英文与中文混合、但审查正文已是中文的情况同样跳过。
+只有审查理由**本身以中文为主**时才跳过翻译；英文理由里夹带的中文引用（例如用户原话「这个提示框似乎卡住了？」）或 Windows 中文路径（`D:\文档\...`）不会再被误判成中文而漏翻。
 
 ### 3. Todo 计划守卫
 
@@ -195,7 +195,7 @@ DSH 0.2 的官方设置 apiproxy 不向浏览器暴露第三方命名空间，�
 
 | DSH 版本 | 状态 |
 | --- | --- |
-| `0.2.1-rc.2` | ✅ 本版本验证（desktop profile；82 项测试 + 真实 Cordis 上下文） |
+| `0.2.1-rc.2` | ✅ 本版本验证（desktop profile；83 项测试 + 真实 Cordis 上下文） |
 | `0.2.0-rc.x` | ✅ peer 范围覆盖（同一套设置、审批与 hook 接缝） |
 | `0.1.x` | ❌ 不支持：0.1 的插件自行注册设置命名空间，与本插件的条目 id 命名空间模型不同 |
 
@@ -261,7 +261,7 @@ test/
 
 ```bash
 pnpm install
-pnpm check     # typecheck + 82 项测试 + 构建
+pnpm check     # typecheck + 83 项测试 + 构建
 ```
 
 构建产物：`lib/index.js`（master ESM）、`lib/appearance.js`、`lib/auto-review-fix.js`、`lib/task-guard.js`、`lib/restart.js` 与 `lib/client.js`（浏览器模块）。`lib/` 不入库。

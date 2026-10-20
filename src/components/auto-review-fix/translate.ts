@@ -77,7 +77,7 @@ export function isAutoReviewText(text: string): boolean {
  * translated ("Auto review denied this call: <reason>" -> "<reason>").
  */
 export function reviewerExcerpt(text: string): string {
-  const match = /^\s*auto[\s\-_]*review\s+denied\s+this\s+call\s*[:：.]?\s*/i.exec(text)
+  const match = /^\s*auto[\s\-_]*review\s+(?:denied\s+this\s+call|拒绝了此调用)\s*[:：.]?\s*/i.exec(text)
   if (match === null) return text.trim()
   const rest = text.slice(match[0].length).trim()
   return rest.length === 0 ? text.trim() : rest
@@ -95,9 +95,22 @@ export function hasTranslation(value: string): boolean {
   return value.includes(TRANSLATION_LABEL)
 }
 
-/** Whether text already contains CJK characters, i.e. it needs no translation. */
+/** Whether text already contains CJK characters. */
 export function containsCjk(text: string): boolean {
   return /[\u3400-\u9fff\uf900-\ufaff]/.test(text)
+}
+
+/**
+ * Whether the reviewer wrote the note in Chinese. A few quoted Chinese
+ * instructions or a Windows path inside an English note ("... (\"这个提示框
+ * 似乎卡住了？\") ...") must not suppress translation; compare the number of
+ * Chinese characters with the number of English word tokens instead.
+ */
+export function isPredominantlyChinese(text: string): boolean {
+  const han = (text.match(/[\u3400-\u9fff\uf900-\ufaff]/g) ?? []).length
+  if (han === 0) return false
+  const englishWords = (text.match(/[A-Za-z][A-Za-z0-9_.-]*/g) ?? []).length
+  return englishWords <= Math.max(2, Math.ceil(han / 2))
 }
 
 /** Drop wrapping quotes, fences, and stray whitespace a model may add. */
