@@ -2,18 +2,18 @@
 
 English | [中文](README.md)
 
-MCviseron's **master plugin for DeepSeek Harness (DSH)**: one npm package hosting multiple components. Every component is its own bundle entry (own profile entry, own Config, own settings namespace), so the DSH plugin inventory lists them separately. The former `dsh-auto-review-restart-fix` and `dsh-task-guard` are merged here and will be deprecated.
+MCviseron's **master plugin for DeepSeek Harness (DSH)**: one npm package and one `mcviseron` profile entry hosting four components. DSH `client-modules` only composes a browser half for a Loader row whose name exactly equals the package name, so the master entry must be `dsh-mcviseron-plugin`; components run as sub-plugins and own settings sub-pages. The former `dsh-auto-review-restart-fix` and `dsh-task-guard` are merged here and will be deprecated.
 
 ## Components
 
-| Component | Profile entry id | Module | What it does |
-| --- | --- | --- | --- |
-| **Appearance · light/dark by time** | `mcviseron-appearance` | `dsh-mcviseron-plugin/appearance` | Adds a settings row below DSH's Appearance row and switches the palette from the local wall clock |
-| **Auto-review hardening** | `mcviseron-auto-review-fix` | `dsh-mcviseron-plugin/auto-review-fix` | Stops the whole-Host shutdown from persisting Full access over an Auto session; appends a Chinese translation to the manual-approval prompt without editing the audited text |
-| **Todo plan guard** | `mcviseron-task-guard` | `dsh-mcviseron-plugin/task-guard` | Advisory notices (optional hard stop) when multi-stage work stops updating its todo plan |
-| **Restart DeepSeek Harness** | `mcviseron-restart` | `dsh-mcviseron-plugin/restart` | Button in Settings → MCviseron plugin that closes and relaunches the desktop application |
+| Component | Mounted at | What it does |
+| --- | --- | --- |
+| **Appearance · light/dark by time** | `mcviseron` top-level fields | Adds a settings row below DSH's Appearance row and switches the palette from the local wall clock |
+| **Auto-review hardening** | `mcviseron.autoReviewFix` | Stops the whole-Host shutdown from persisting Full access over an Auto session; appends a Chinese translation to the manual-approval prompt |
+| **Todo plan guard** | `mcviseron.taskGuard` | Advisory notices (optional hard stop) when multi-stage work stops updating its todo plan |
+| **Restart DeepSeek Harness** | `mcviseron.restart` | Button in Settings → MCviseron plugin that closes and relaunches the desktop application |
 
-> 0.2.0 packed all three components into a single `mcviseron` entry, so the plugin manager showed only one component. Since 0.3.0 they are three entries and can be enabled/configured independently.
+> 0.6.1 returns to a **single** `mcviseron` entry: DSH `client-modules` only composes a browser half for an exact package-name Loader row, and subpath rows silently dropped the whole client plugin. Components still run as sub-plugins and expose settings sub-pages.
 
 ### 1. Appearance · light/dark by time
 
@@ -52,9 +52,9 @@ MCviseron's **master plugin for DeepSeek Harness (DSH)**: one npm package hostin
 Settings gains a first-level **MCviseron plugin** section (`settings.section`, id `mcviseron`). Components own a tab there when they have a settings surface:
 
 - **Restart**: restart DeepSeek Harness (this component's settings).
-- **Components**: list the four components and where they are configured.
+- **Components**: list the four components and their configuration surfaces.
 
-The Appearance component is intentionally **not** here — its row stays under General → Appearance. Components without a settings surface get no tab; `autoReview` / `taskGuard` remain profile-configured and the Components tab says so.
+The Appearance component is intentionally **not** here — its row stays under General → Appearance. Auto review and Todo guard have editable sub-pages; the Components tab is an overview.
 
 ## Install
 
@@ -63,52 +63,53 @@ The Appearance component is intentionally **not** here — its row stays under G
 pnpm add link:D:/Program/DSH-Plugin-Class/dsh-mcviseron-plugin
 ```
 
-Add `dsh-mcviseron-plugin` to `dsh.profile.bundles` and remove `dsh-auto-review-restart-fix` / `dsh-task-guard`. Restart DSH; the bundled `cordis.patch.yml` inserts the three component entries.
+Add `dsh-mcviseron-plugin` to `dsh.profile.bundles` and remove `dsh-auto-review-restart-fix` / `dsh-task-guard`. Restart DSH; the bundled `cordis.patch.yml` inserts one `mcviseron` master entry.
 
 ## Configuration
 
 ```yaml
-- id: mcviseron-appearance
-  name: dsh-mcviseron-plugin/appearance
-  config: { enabled: true, lightStart: "08:00", lightEnd: "23:00" }
-
-- id: mcviseron-auto-review-fix
-  name: dsh-mcviseron-plugin/auto-review-fix
-  config:
-    keepPresetGuard: true
-    translateApprovalReason: true
-    translateTimeoutMs: 6000
-    translateMaxChars: 4000
-    translateProvider: ""
-    translateModel: ""
-
-- id: mcviseron-task-guard
-  name: dsh-mcviseron-plugin/task-guard
+- id: mcviseron
+  name: dsh-mcviseron-plugin
   config:
     enabled: true
-    locale: zh
-    staleAfterCalls: 5
-    repeatEveryCalls: 4
-    blockAfterCalls: 0
-    rejectMissingActive: false
-    sourceKind: auto
-    maxListItems: 6
+    lightStart: "08:00"
+    lightEnd: "23:00"
+    autoReviewFix:
+      keepPresetGuard: true
+      translateApprovalReason: true
+      translateTimeoutMs: 6000
+      translateMaxChars: 4000
+      translateProvider: ""
+      translateModel: ""
+    taskGuard:
+      enabled: true
+      locale: zh
+      staleAfterCalls: 5
+      repeatEveryCalls: 4
+      blockAfterCalls: 0
+      rejectMissingActive: false
+      sourceKind: auto
+      maxListItems: 6
+    restart:
+      enabled: true
+      appPath: ""
 ```
 
 Defaults: appearance off / `08:00–23:00`; auto-review both guards on, 6 s, 4000 chars; task-guard on, `zh`, stale at 5 / repeat 4, no blocking, step-intent detection and todo translation on (3 s), excludes `todo_write` and `ask_user_question`.
 
 ## How it works
 
-- `cordis.patch.yml` inserts one loader entry per component, each pointing at a subpath export of this package.
-- `src/appearance` owns the Config and the two loopback routes (`/api/dsh-mcviseron/settings/describe|mutate`) the browser row uses; the browser half lives in `src/client/`.
-- `src/auto-review-fix` and `src/task-guard` are thin entries around the shared implementations in `src/components/`.
-- Entry `apply()` functions unwrap DSH 0.2 volatile config references before handing the config to a component.
+- `cordis.patch.yml` inserts one `mcviseron` master entry (`name: dsh-mcviseron-plugin`).
+- `src/index.ts` mounts the four components with `ctx.plugin`; each keeps its own `inject` and implementation.
+- `src/appearance` owns the two loopback routes (`/api/dsh-mcviseron/settings/describe|mutate`) the browser uses; the browser half lives in `src/client/` and registers the settings section and sub-pages.
+- The settings bridge accepts appearance top-level fields and nested `autoReviewFix.*` / `taskGuard.*` / `restart.*` paths.
+- The master entry and components unwrap DSH 0.2 volatile config references before use.
 
 ## Compatibility
 
 | DSH version | Status |
 | --- | --- |
-| `0.2.1-rc.2` | ✅ verified (desktop profile; 71 tests + real Cordis contexts) |
+| `0.2.1-rc.2` | ✅ verified (desktop profile; 75 tests + real Cordis contexts) |
 | `0.2.0-rc.x` | ✅ covered by the peer range |
 | `0.1.x` | ❌ unsupported (different settings-namespace model) |
 

@@ -87,7 +87,7 @@ jobs:
       - name: Verify tarball contents
         run: |
           npm pack --dry-run 2>&1 | tee /tmp/pack.txt
-          for f in lib/appearance.js lib/auto-review-fix.js lib/task-guard.js lib/client.js cordis.patch.yml package.json README.md LICENSE; do
+          for f in lib/index.js lib/appearance.js lib/auto-review-fix.js lib/task-guard.js lib/restart.js lib/client.js cordis.patch.yml package.json README.md LICENSE; do
             if ! grep -qF "$f" /tmp/pack.txt; then
               echo "::error::tarball is missing $f"
               exit 1

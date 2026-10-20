@@ -4,19 +4,45 @@
 
 ## [Unreleased]
 
-### 发布准备
-
-- 包名 `dsh-mcviseron-plugin` 在 npmjs 可用（404）；`publishConfig` 指向 `https://registry.npmjs.org/`，`prepublishOnly` 执行 `pnpm check`。
-- 新增 `.github/workflows/publish.yml`：tag 触发、校验 tag 与版本、检查 tarball、OIDC Trusted Publishing + provenance，`NPM_PUBLISH_ENABLED` 作为总开关。
-- 新增 [docs/release.md](docs/release.md)：账号解冻（2026-10-20 11:55 北京时间）后的首次手动发布步骤、OTP / granular token、staged publishing、Trusted Publisher 配置与镜像同步。
-- 两个旧仓库（`dsh-auto-review-restart-fix`、`dsh-task-guard`）的历史已清空，仅保留指向本仓库的废弃说明。
-
 ### 计划中
 
-- 总插件的后续组件（待定）：组件开关面板、统一的语言/入口注册，以及与更多 DSH 外观 token 的联动。
 - 将「按时间切换」扩展为多时段表（例如白天的多个浅色窗口）。
 - 设置行支持「立即测试」预览按钮。
-- 为 `autoReview` / `taskGuard` 提供可视化设置页（当前通过 profile 配置维护）。
+- Restart 组件支持 macOS/Linux（当前仅 Windows 桌面版）。
+- 把定时巡检任务 prompt 更新为当前单条目架构。
+
+## [0.6.1] - 2026-10-19
+
+### Added
+
+- **单一 master 条目 `mcviseron`**：一个 Loader 行挂载 appearance / auto-review-fix / task-guard / restart 四个子组件；包根导出 `lib/index.js` 负责装配。
+- **设置子页**：MCviseron 插件分区新增「Auto review 修复」「Todo 守卫」子页；所有开关使用 DSH 官方 `Switch`（`@deepseek-ai/dsh-client-ui-primitives`）。
+- **组件配置桥**：设置桥支持 `autoReviewFix.*` / `taskGuard.*` / `restart.*` 嵌套路径，表单修改后自动写入 master 条目 Config。
+- **重启**：Windows 任务计划程序创建一次性任务，任务动作直接启动 `DeepSeek Harness.exe`（不经过终端 / `Start-Process`），Host 随后关闭主进程；仅 Windows 桌面版可用。
+- **审批翻译**：auto-review-fix 在翻译成功后把 `【审查理由 · 中文翻译】` 追加到 `reason`，使只读取持久 `approval/asked` 事件的邮箱兜底也能收到翻译；`displayReason` 仍保留译文。
+
+### Fixed
+
+- **客户端半区被丢弃**：DSH `client-modules` 只给 Loader 行名称等于包名的条目组合浏览器半区；原四个子路径条目导致整个客户端插件（外观行、设置分区、重启回退）消失。改成单一 `mcviseron` 条目后恢复。
+- **外观行位置**：`settings.general.item` 的 order 改为 `10.5`，紧跟在主题「外观」(10) 之后、字体(11) 之前。
+- **重启配置引用**：嵌套 Config 的 volatile 引用在传入重启组件前统一 `toPlain()`，并给 `appPath` 加字符串兜底，修复 `override.trim is not a function`。
+
+### Changed
+
+- `cordis.patch.yml` 只插入一个 `mcviseron` 条目（`name: dsh-mcviseron-plugin`），profile 只配置这一条；组件配置位于其 `autoReviewFix` / `taskGuard` / `restart` 子对象。
+- 设置命名空间从 `mcviseron-appearance` 改为 `mcviseron`；外观字段仍在 Config 顶层。
+- 版本号 `0.6.0` → `0.6.1`（原本地 0.7.0 未发布，不产生 tag）。
+- 合计 **75 项测试**。
+
+### Compatibility
+
+- 目标 DSH `0.2.0-rc.2` / `0.2.1-rc.2`；peer 范围 `^0.2.0-rc.2 || ^0.2.1-rc.2`。
+- npm 发布工作流：tag 触发、校验 tag/版本、OIDC Trusted Publishing + provenance；`NPM_PUBLISH_ENABLED` 作为总开关。
+
+### Release
+
+- 包名 `dsh-mcviseron-plugin` 在 npmjs 可用；`publishConfig` 指向官方 registry，`prepublishOnly` 执行 `pnpm check`。
+- 新增 `.github/workflows/publish.yml` 与 [docs/release.md](docs/release.md)；首次发布手动完成，之后绑定 Trusted Publisher 并设置 `NPM_PUBLISH_ENABLED=true`。
 
 ## [0.6.0] - 2026-10-18
 

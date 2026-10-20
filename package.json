@@ -1,6 +1,6 @@
 {
   "name": "dsh-mcviseron-plugin",
-  "version": "0.7.0",
+  "version": "0.6.1",
   "description": "DeepSeek Harness (DSH) master plugin — one package hosting MCviseron's DSH components as separate bundle entries: a time-based light/dark Appearance schedule, an Auto-review fix (shutdown preset guard + Chinese approval-reason translation), and a todo plan guard that keeps multi-stage work advancing.",
   "license": "Apache-2.0",
   "author": {

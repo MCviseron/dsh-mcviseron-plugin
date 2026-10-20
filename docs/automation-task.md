@@ -25,11 +25,11 @@
 仓库：D:\Program\DSH-Plugin-Class\dsh-mcviseron-plugin（GitHub: https://github.com/MCviseron/dsh-mcviseron-plugin）
 目标版本：以 npm 官方最新版 @deepseek-ai/dsh 为准（npm view @deepseek-ai/dsh version；必要时也查 https://registry.npmjs.org/@deepseek-ai/dsh 的 dist-tags.latest）。
 
-本仓库承载三个 bundle 条目，升级时逐一检查：
-- mcviseron-appearance：settings.general.item 插槽、locale/slots 注册、ctx.theme.setTheme/getTheme、loopback 设置桥（ctx.settings.describe/mutate/configure）、扁平 Config 与 volatile 引用展开。
-- mcviseron-auto-review-fix：ctx.inject 的 permissionPresets.set 与 approval.request 包装、displayReason 结构、llm.stream 分块格式。
-- mcviseron-task-guard（dsh-mcviseron-plugin/task-guard）：tools/pre-execute、tools/post-execute（additionalContexts）、agent/pre-step、agent/assistant-stream（意图检测）、session/event、session format v3/v4 的 source kind、todo 标题翻译（llm）。
-- mcviseron-restart（dsh-mcviseron-plugin/restart）：一级设置分区（settings.section）与重启子页、loopback restart 路由、Electron 主进程 PID/EXE 推导、detached PowerShell 助手与 ELECTRON_RUN_AS_NODE 处理。
+本仓库承载一个 master 条目 `mcviseron`（`name: dsh-mcviseron-plugin`），内部挂载四个子组件；升级时逐一检查：
+- appearance 子组件：settings.general.item 插槽、locale/slots 注册、ctx.theme.setTheme/getTheme、loopback 设置桥（ctx.settings.describe/mutate/configure）、Config 顶层字段与 volatile 引用展开。
+- auto-review-fix 子组件：ctx.inject 的 permissionPresets.set 与 approval.request 包装、displayReason / reason 结构、llm.stream 分块格式。
+- task-guard 子组件：tools/pre-execute、tools/post-execute（additionalContexts）、agent/pre-step、agent/assistant-stream（意图检测）、session/event、session format v3/v4 的 source kind、todo 标题翻译（llm）。
+- restart 子组件：一级设置分区（settings.section）与重启子页、loopback restart 路由、Electron 主进程 PID/EXE 推导、Windows 任务计划程序直接启动 exe。
 旧仓库 dsh-auto-review-restart-fix 与 dsh-task-guard 已废弃，不要修改；它们的功能已并入本仓库。
 
 步骤：
@@ -38,7 +38,7 @@
 3. 若发布了新版本：
    a. 执行 pnpm install，把 @deepseek-ai/dsh-client-connection、dsh-client-locale、dsh-client-ui-settings、dsh-client-ui-slots、dsh-client-ui-renderer、dsh-host-webserver、dsh-settings、@deepseek-ai/cordis 的开发依赖升级到与最新 DSH 相同版本，并更新 peerDependencies 范围。
    b. 对照最新包的类型声明与 lib 实现，按组件逐层修复不兼容处（先 Host 设置桥，再 autoReview、taskGuard，最后浏览器外观行）。
-   c. 执行 pnpm check（tsc --noEmit + 71 项 node 测试 + esbuild 构建），补齐或修正测试；必要时更新 test/plugin.test.ts 的装配断言。
+   c. 执行 pnpm check（tsc --noEmit + 75 项 node 测试 + esbuild 构建），补齐或修正测试；必要时更新 test/plugin.test.ts 的装配断言。
    d. 更新 CHANGELOG.md（新版本段落记录兼容版本与修复）、README.md / README.en.md 的兼容性表；提交并推送到 main。
 4. 不要执行 npm publish；不要重启或关闭正在运行的 DSH；不要修改 D:\Program\DSH-Plugin-Class 下的其他插件仓库。
 

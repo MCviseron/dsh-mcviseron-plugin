@@ -1,11 +1,11 @@
 # 发布 dsh-mcviseron-plugin 到 npm
 
-## 当前状态（2026-10-18）
+## 当前状态（2026-10-19）
 
 - 包名 **`dsh-mcviseron-plugin` 在 npmjs 可用**（`npm view` 返回 404，未占用）。
-- npm 账号 `mcviseron` 因使用恢复码登录被**临时只读暂停**，解冻时间 **2026-10-20 03:55 UTC = 北京时间 11:55**。暂停期间不要执行 `npm publish`、创建 token 或修改包设置。
+- npm 账号 `mcviseron` 已恢复正常，可执行首次手动发布。
 - 本机全局 registry 指向 npmmirror，发布时必须显式指定 `--registry=https://registry.npmjs.org/`。
-- 首次发布需要**手动**完成；之后由 `.github/workflows/publish.yml` 通过 OIDC Trusted Publishing 发布。
+- 首次发布 **v0.6.1 需要手动完成**；之后由 `.github/workflows/publish.yml` 通过 OIDC Trusted Publishing 发布。
 
 ## 首次发布（账号解冻后）
 
@@ -23,7 +23,7 @@
    ```
 
    `prepublishOnly` 也会执行 `pnpm check`。tarball 必须包含：
-   `lib/appearance.js`、`lib/auto-review-fix.js`、`lib/task-guard.js`、`lib/client.js`、`cordis.patch.yml`、`package.json`、`README.md`、`LICENSE`。
+   `lib/index.js`、`lib/appearance.js`、`lib/auto-review-fix.js`、`lib/task-guard.js`、`lib/restart.js`、`lib/client.js`、`cordis.patch.yml`、`package.json`、`README.md`、`LICENSE`。
 
 3. 发布：
 
@@ -48,7 +48,7 @@
 
    ```powershell
    npm view dsh-mcviseron-plugin version dist-tags.latest --registry=https://registry.npmjs.org/
-   curl.exe -sI https://registry.npmjs.org/dsh-mcviseron-plugin/-/dsh-mcviseron-plugin-0.4.0.tgz | Select-Object -First 1
+   curl.exe -sI https://registry.npmjs.org/dsh-mcviseron-plugin/-/dsh-mcviseron-plugin-0.6.1.tgz | Select-Object -First 1
    curl.exe -X PUT "https://registry.npmmirror.com/-/package/dsh-mcviseron-plugin/syncs"
    ```
 
