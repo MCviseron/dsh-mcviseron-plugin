@@ -65,7 +65,7 @@ npmjs.com → `dsh-mcviseron-plugin` → **Settings → Trusted Publisher → Gi
 | Allow npm publish | 勾选 |
 | Allow npm dist-tag | 勾选 |
 
-然后在 GitHub 仓库 **Settings → Actions → Variables** 设置 `NPM_PUBLISH_ENABLED=true`。
+Trusted Publisher 绑定后，**推送 `v*` tag 即直接发布**，不再需要 repository variable。
 
 ## 后续发版
 
@@ -74,7 +74,9 @@ npmjs.com → `dsh-mcviseron-plugin` → **Settings → Trusted Publisher → Gi
 3. `git tag vX.Y.Z && git push origin main --tags`。
 4. `publish.yml` 会校验 tag 与版本一致、跑测试与构建、检查 tarball 内容，然后通过 OIDC 发布并附带 provenance。
 
-> 未设置 `NPM_PUBLISH_ENABLED=true` 时，tag 构建仍会跑，但发布会跳过并输出 notice。
+> `workflow_dispatch` 默认只做 `npm pack --dry-run`；要发布当前 `main` 的版本，取消勾选 `dry-run` 再运行。
+>
+> v0.6.2 的 tag 运行发生在门禁移除之前，重跑仍会使用旧 workflow；发布 0.6.2 请从 `main` 手动运行一次 `publish` 并取消 `dry-run`。之后的新 tag 会自动发布。
 
 ## 回滚与故障
 
