@@ -331,12 +331,16 @@ export function createSessionEndController(deps: SessionEndDeps = {}): SessionEn
       return view(sessionId)
     },
     onTurnStart(sessionId) {
-      // A new turn in the same session cancels a pending action. If the user
-      // armed the action while idle, no timer exists yet, so the state survives
-      // into the turn and fires at its end.
-      if (!timers.has(sessionId)) return
+      // A new turn cancels only the pending timer; it keeps the armed entry so
+      // the action is rescheduled at this turn's end instead of being silently
+      // lost when the user follows up during the grace period.
+      const entry = entries.get(sessionId)
+      if (entry !== undefined) {
+        entry.waiting = false
+        entry.runningAgents = 0
+        entry.runningJobs = 0
+      }
       cancel(sessionId)
-      entries.delete(sessionId)
     },
     onTurnEnd(sessionId) {
       const entry = entries.get(sessionId)
@@ -380,6 +384,7 @@ function bodySessionId(body: unknown): string | undefined {
 
 /** Build the state and set routes for the composer control. */
 export function makeSessionEndRoutes(controller: SessionEndController): WebRoute[] {
+  const seen = new Set<string>()
   const state: WebRoute = {
     kind: 'exact',
     path: SESSION_END_API.state,
@@ -389,6 +394,10 @@ export function makeSessionEndRoutes(controller: SessionEndController): WebRoute
         if (!isLoopbackRequest(req)) return json(res, 403, { ok: false, error: 'forbidden' })
         const sessionId = bodySessionId(await readJsonBody(req))
         if (sessionId === undefined) return json(res, 400, { ok: false, error: 'sessionId-required' })
+        if (!seen.has(sessionId)) {
+          seen.add(sessionId)
+          defaultLog('state request: session=' + sessionId)
+        }
         json(res, 200, { ok: true, ...controller.get(sessionId) })
       } catch (error) {
         json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
@@ -625,13 +634,23 @@ export function apply(ctx: Context, config?: SessionEndConfig): void {
   }, 'mcviseron-session-end: routes')
 
   if (options.enabled) {
-    ;(ctx as unknown as { on: (event: string, handler: (session: unknown, event: { type?: unknown }) => void) => unknown })
-      .on('session/event', (session, event) => {
-        const sessionId = sessionIdOf(session)
-        if (sessionId === '') return
-        if (event?.type === 'turn/start') controller.onTurnStart(sessionId)
-        else if (event?.type === 'turn/end') controller.onTurnEnd(sessionId)
-      })
+    const root = (ctx as unknown as { root?: unknown }).root
+    const eventBus = (root ?? ctx) as {
+      on?: (event: string, handler: (session: unknown, event: { type?: unknown }) => void) => unknown
+    }
+    if (typeof eventBus.on === 'function') {
+      ctx.effect(() => {
+        const dispose = eventBus.on?.('session/event', (session, event) => {
+          const sessionId = sessionIdOf(session)
+          if (sessionId === '') return
+          if (event?.type === 'turn/start') controller.onTurnStart(sessionId)
+          else if (event?.type === 'turn/end') controller.onTurnEnd(sessionId)
+        })
+        return () => {
+          if (typeof dispose === 'function') dispose()
+        }
+      }, 'mcviseron-session-end: session events')
+    }
     installGuidance(ctx)
     installAgentTool(ctx, controller, options, log)
   }

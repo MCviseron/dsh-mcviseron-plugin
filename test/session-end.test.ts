@@ -69,13 +69,17 @@ test('restart waits for running agent turns and jobs', async () => {
   assert.equal(controller.get('s').mode, 'off')
 })
 
-test('a new turn cancels a pending action', async () => {
+test('a new turn reschedules a pending action to its own end', async () => {
   const { controller, calls } = fixture()
   controller.set('s', 'restart', 'user')
   controller.onTurnEnd('s')
   controller.onTurnStart('s')
   await sleep(35)
   assert.deepEqual(calls, [])
+  assert.equal(controller.get('s').mode, 'restart')
+  controller.onTurnEnd('s')
+  await sleep(40)
+  assert.deepEqual(calls, ['restart'])
   assert.equal(controller.get('s').mode, 'off')
 })
 
