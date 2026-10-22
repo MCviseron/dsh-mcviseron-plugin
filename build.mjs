@@ -1,5 +1,15 @@
 import { build } from 'esbuild'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+// nodemailer is CommonJS and calls require('events') from inside an ESM
+// bundle. Give every host bundle a real CommonJS require so esbuild's
+// __require shim can resolve Node builtins at import time.
+const cjsBanner = [
+  "import { createRequire } from 'node:module';",
+  'const require = createRequire(import.meta.url);',
+].join('\n')
 
 const sharedExternal = [
   '@deepseek-ai/*',
@@ -32,10 +42,17 @@ for (const [entry, outfile] of hostEntries) {
     platform: 'node',
     target: 'node22',
     external: sharedExternal,
+    banner: { js: cjsBanner },
     sourcemap: false,
     logLevel: 'info',
   })
 }
+
+// Catch the class of regression that dropped the plugin after v0.6.3:
+// importing the built host bundle at build time proves the bundled CJS
+// dependencies (nodemailer) can resolve their builtins under ESM.
+await import(pathToFileURL(resolve('lib/index.js')).href + '?t=' + Date.now())
+console.log('host bundle imports cleanly')
 
 // Browser half: bundle as CommonJS, then wrap it in the DSH module-loader
 // format the Web shell executes. External runtime modules are provided by the
