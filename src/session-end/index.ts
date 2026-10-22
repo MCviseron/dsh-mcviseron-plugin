@@ -493,11 +493,12 @@ function installAgentTool(ctx: Context, controller: SessionEndController, option
           schema: {
             type: 'object',
             additionalProperties: false,
+            required: ['ok', 'action', 'requestedBy', 'message'],
             properties: {
-              ok: { type: 'boolean', required: true },
-              action: { type: 'string', required: true, enum: ['off', 'restart', 'close'] },
-              requestedBy: { type: 'string', required: true, enum: ['ai'] },
-              message: { type: 'string', required: true },
+              ok: { type: 'boolean' },
+              action: { type: 'string', enum: ['off', 'restart', 'close'] },
+              requestedBy: { type: 'string', enum: ['ai'] },
+              message: { type: 'string' },
             },
           },
           render: (_args: unknown, value: { message?: unknown }) => [{

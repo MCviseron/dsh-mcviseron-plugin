@@ -197,6 +197,10 @@ test('the agent tool is registered and can arm restart/close but not shutdown', 
     await sleep(30)
     const tool = registered.find(item => item?.name === 'set_session_end_action')
     assert.ok(tool)
+    assert.deepEqual(tool.output.schema.required, ['ok', 'action', 'requestedBy', 'message'])
+    for (const property of Object.values(tool.output.schema.properties)) {
+      assert.equal(Object.prototype.hasOwnProperty.call(property, 'required'), false)
+    }
     const exec = { agent: { session: { id: 'tool-session' } } }
     const result = await tool.execute({ action: 'off', reason: 'not needed' }, exec)
     assert.equal(result.ok, true)
