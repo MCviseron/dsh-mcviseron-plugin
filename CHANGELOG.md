@@ -1,12 +1,4 @@
-# Changelog
-
-本项目的所有重要变更都记录在此文件中，格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
-
 ## [Unreleased]
-
-### Added
-
-- **AI 重启判断指引**：为 `set_session_end_action` 增加明确的 WHEN / WHEN NOT 规则，并注册 `plugin:mcviseron-session-end` system prompt 段落：只有本轮修改了 DSH 插件源码 / `lib` / `cordis.patch.yml` / profile loader / 仅启动时读取的配置，且已构建验证时才建议重启；普通项目文件、文档、仅测试、live 设置、EDA/MATLAB/STM32、todo 变更不触发。AI 在最终回复前设置，动作在最终文字显示完后执行。
 
 ### 计划中
 
@@ -14,6 +6,26 @@
 - 设置行支持「立即测试」预览按钮。
 - Restart 组件支持 macOS/Linux（当前仅 Windows 桌面版）。
 - 把定时巡检任务 prompt 更新为当前单条目架构。
+
+## [0.6.5] - 2026-10-23
+
+### Added
+
+- **AI 重启判断指引**：为 `set_session_end_action` 增加明确的 WHEN / WHEN NOT 规则，并注册 `plugin:mcviseron-session-end` system prompt 段落：只有本轮修改了 DSH 插件源码 / `lib` / `cordis.patch.yml` / profile loader / 仅启动时读取的配置，且已构建验证时才建议重启；普通项目文件、文档、仅测试、live 设置、EDA/MATLAB/STM32、todo 变更不触发。AI 在最终回复前设置，动作在最终文字显示完后执行。
+
+### Fixed
+
+- **`set_session_end_action` 注册失败**：DSH 的 tool output JSON Schema 不支持在 boolean/string 字段上写 `required: true`；原定义导致整个工具注册被拒，AI 工具列表里根本没有它。改为对象级 `required: ['ok','action','requestedBy','message']`，并补回归测试。
+- **会话后动作设置后不触发**：`session/event` 监听注册在嵌套子上下文时收不到 `turn/end`，state 会一直停在 restart 但不会重启；改为注册在 `ctx.root` 并用 effect 清理。新 turn 开始时不再删除动作，而是取消本次计时并在该 turn 结束后重新排队，避免用户追问时把重启静默吞掉。
+
+### Changed
+
+- **会话后动作下拉改用官方原语**：触发按钮/菜单改用 `@deepseek-ai/dsh-client-ui-primitives` 的 `Menu`、`IconChevronDownOutlineRegular` 等组件，列表宽度（144–360px）、行高 34px、13px 字号、图标尺寸、勾选标记与键盘/portal 行为都与「自动审查」下拉一致；加入随动作变化的官方图标（时钟/刷新/关闭/停止）。
+- **“关闭”选项改名“不做操作”**：避免与“关闭 DSH / 关闭电脑”混淆；英文为 “No action”。
+
+### Tests
+
+- 合计 **92 项测试**。
 
 ## [0.6.4] - 2026-10-23
 
