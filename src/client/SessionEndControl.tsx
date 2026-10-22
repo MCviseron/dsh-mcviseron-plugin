@@ -1,4 +1,13 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
+import {
+  IconChevronDownOutlineRegular,
+  IconClockOutlineRegular,
+  IconCloseCircleFillRegular,
+  IconCloseOutlineRegular,
+  IconRefreshOutlineRegular,
+  IconStopFillRegular,
+  Menu,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { SESSION_END_API } from '../api.ts'
 import type { McviseronKey } from './locales.ts'
@@ -26,6 +35,15 @@ const INITIAL: State = {
   available: { restart: true, close: true, shutdown: true },
 }
 
+const TRIGGER_CSS = [
+  '.mcviseron-session-end-trigger:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}',
+  '.mcviseron-session-end-trigger:focus-visible{box-shadow:0 0 0 2px var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline:none}',
+  '.mcviseron-session-end-trigger:disabled{color:var(--dsw-alias-label-dimmed);cursor:default}',
+  '.mcviseron-session-end-trigger svg{width:14px;height:14px}',
+  '.mcviseron-session-end-chevron{display:inline-flex;transition:transform .12s;color:var(--dsw-alias-label-caption)}',
+  '.mcviseron-session-end-chevron.open{transform:rotate(180deg)}',
+].join('\n')
+
 export type SessionEndControlProps =
   PropsRuntime<'conversation.input.left'>
   & PropsLocale<'mcviseron'>
@@ -33,10 +51,10 @@ export type SessionEndControlProps =
 const labelStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
-  gap: 6,
-  padding: '0 6px',
+  gap: 4,
+  padding: '0 4px',
   height: 28,
-  borderRadius: 8,
+  borderRadius: 'var(--dsw-radius-sm)',
   fontSize: 12,
   lineHeight: 1.3,
   color: 'var(--dsw-alias-label-secondary)',
@@ -46,49 +64,20 @@ const labelStyle: CSSProperties = {
 const triggerStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: 6,
+  gap: 4,
   height: 28,
-  minWidth: 92,
-  maxWidth: 150,
-  borderRadius: 10,
-  border: '1px solid var(--dsw-alias-border-l3)',
-  background: 'var(--dsw-alias-bg-layer-2)',
-  color: 'var(--dsw-alias-label-primary)',
-  fontSize: 12,
-  lineHeight: 1.3,
-  padding: '0 8px',
-  cursor: 'pointer',
-}
-
-const menuStyle: CSSProperties = {
-  position: 'fixed',
-  zIndex: 10000,
-  padding: 6,
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 2,
-  borderRadius: 14,
-  border: '1px solid var(--dsw-alias-border-l3)',
-  background: 'var(--dsw-alias-bg-layer-2)',
-  boxShadow: '0 18px 44px rgba(0, 0, 0, 0.32)',
-}
-
-const menuOptionStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: 10,
-  width: '100%',
-  border: 0,
-  borderRadius: 10,
+  minWidth: 0,
+  maxWidth: 220,
+  padding: '0 4px 0 8px',
+  border: 'none',
+  borderRadius: 'var(--dsw-radius-sm)',
   background: 'transparent',
-  color: 'var(--dsw-alias-label-primary)',
-  fontSize: 13,
-  lineHeight: '20px',
-  padding: '7px 10px',
-  textAlign: 'left',
+  color: 'var(--dsw-alias-label-secondary)',
   cursor: 'pointer',
+  outline: 'none',
+  fontSize: 13,
+  fontWeight: 500,
+  lineHeight: '20px',
 }
 
 const noticeStyle: CSSProperties = {
@@ -113,12 +102,21 @@ const shutdownNoticeStyle: CSSProperties = {
   color: 'var(--dsw-alias-state-error-primary)',
 }
 
+function triggerIcon(mode: Mode) {
+  if (mode === 'restart') return <IconRefreshOutlineRegular />
+  if (mode === 'close') return <IconCloseCircleFillRegular />
+  if (mode === 'shutdown') return <IconStopFillRegular />
+  return <IconClockOutlineRegular />
+}
+
 /**
  * Composer control for the one-shot session-end action.
  *
- * The dropdown is off by default. The server state is polled because the agent
- * can arm the action through its set_session_end_action tool while a turn is
- * running; the AI-requested state gets a colored, non-modal reminder.
+ * The trigger and menu are the official DSH primitives: the menu geometry,
+ * icons, check marker, portal placement, and keyboard handling therefore match
+ * the Auto-review permission selector. The dropdown is off by default; the
+ * server state is polled because the agent can arm it through
+ * set_session_end_action while a turn is running.
  */
 export function SessionEndControl(props: SessionEndControlProps) {
   const { t } = props
@@ -126,9 +124,6 @@ export function SessionEndControl(props: SessionEndControlProps) {
   const [state, setState] = useState<State>(INITIAL)
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState(false)
-  const [menu, setMenu] = useState({ left: 0, bottom: 0, minWidth: 0 })
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (sessionId === undefined || sessionId === '') {
@@ -145,11 +140,7 @@ export function SessionEndControl(props: SessionEndControlProps) {
         })
         const body = await response.json() as Partial<State> & { ok?: boolean }
         if (cancelled || body.ok !== true) return
-        setState(prev => ({
-          ...prev,
-          ...body,
-          available: body.available ?? prev.available,
-        }))
+        setState(prev => ({ ...prev, ...body, available: body.available ?? prev.available }))
       } catch {
         /* a transient poll failure leaves the last known state in place */
       }
@@ -162,47 +153,7 @@ export function SessionEndControl(props: SessionEndControlProps) {
     }
   }, [sessionId])
 
-  useEffect(() => {
-    if (!open) return
-    const close = (): void => { setOpen(false) }
-    const onPointer = (event: MouseEvent): void => {
-      const target = event.target as Node
-      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return
-      setOpen(false)
-    }
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('mousedown', onPointer)
-    document.addEventListener('keydown', onKey)
-    window.addEventListener('resize', close)
-    window.addEventListener('scroll', close, true)
-    return () => {
-      document.removeEventListener('mousedown', onPointer)
-      document.removeEventListener('keydown', onKey)
-      window.removeEventListener('resize', close)
-      window.removeEventListener('scroll', close, true)
-    }
-  }, [open])
-
   if (sessionId === undefined || sessionId === '') return null
-
-
-  const toggleMenu = (): void => {
-    if (open) {
-      setOpen(false)
-      return
-    }
-    const rect = triggerRef.current?.getBoundingClientRect()
-    if (rect === undefined) return
-    const minWidth = Math.max(rect.width, 176)
-    const left = Math.min(
-      Math.max(8, rect.left),
-      Math.max(8, window.innerWidth - minWidth - 8),
-    )
-    setMenu({ left, bottom: window.innerHeight - rect.top + 6, minWidth })
-    setOpen(true)
-  }
 
   const change = (mode: Mode): void => {
     setOpen(false)
@@ -224,11 +175,7 @@ export function SessionEndControl(props: SessionEndControlProps) {
       .then(async response => await response.json() as Partial<State> & { ok?: boolean })
       .then(body => {
         if (body.ok === true) {
-          setState(prev => ({
-            ...prev,
-            ...body,
-            available: body.available ?? prev.available,
-          }))
+          setState(prev => ({ ...prev, ...body, available: body.available ?? prev.available }))
         }
       })
       .catch(() => { /* the next poll reconciles */ })
@@ -247,8 +194,65 @@ export function SessionEndControl(props: SessionEndControlProps) {
         : state.waiting ? t('sessionEnd.aiWaiting') : t('sessionEnd.aiRestart')
       : ''
 
+  const items = [
+    { id: 'off', label: t('sessionEnd.off'), icon: <IconCloseOutlineRegular /> },
+    {
+      id: 'restart',
+      label: t('sessionEnd.restart'),
+      icon: <IconRefreshOutlineRegular />,
+      disabled: !state.available.restart,
+    },
+    {
+      id: 'close',
+      label: t('sessionEnd.close'),
+      icon: <IconCloseCircleFillRegular />,
+      disabled: !state.available.close,
+    },
+    {
+      id: 'shutdown',
+      label: t('sessionEnd.shutdown'),
+      icon: <IconStopFillRegular />,
+      disabled: !state.available.shutdown,
+      danger: true,
+    },
+  ]
+
+  const anchor = (
+    <button
+      type="button"
+      className="mcviseron-session-end-trigger"
+      aria-label={t('sessionEnd.label')}
+      aria-haspopup="menu"
+      aria-expanded={open}
+      title={t('sessionEnd.hint')}
+      style={triggerStyle}
+      disabled={busy}
+      onClick={() => { setOpen(value => !value) }}
+    >
+      <span style={{ display: 'inline-flex', flex: 'none' }}>{triggerIcon(state.mode)}</span>
+      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {t(
+          state.mode === 'off'
+            ? 'sessionEnd.off'
+            : state.mode === 'restart'
+              ? 'sessionEnd.restart'
+              : state.mode === 'close'
+                ? 'sessionEnd.close'
+                : 'sessionEnd.shutdown',
+        )}
+      </span>
+      <span
+        className={open ? 'mcviseron-session-end-chevron open' : 'mcviseron-session-end-chevron'}
+        aria-hidden
+      >
+        <IconChevronDownOutlineRegular />
+      </span>
+    </button>
+  )
+
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+      <style>{TRIGGER_CSS}</style>
       {notice !== '' && (
         <span
           style={shutdown ? shutdownNoticeStyle : noticeStyle}
@@ -257,75 +261,19 @@ export function SessionEndControl(props: SessionEndControlProps) {
           {notice}
         </span>
       )}
-      <style>{`
-        .mcviseron-session-end-trigger { transition: background 120ms ease, border-color 120ms ease; }
-        .mcviseron-session-end-trigger:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover, var(--dsw-alias-bg-layer-3)); }
-        .mcviseron-session-end-option { transition: background 120ms ease; }
-        .mcviseron-session-end-option:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover, var(--dsw-alias-bg-layer-3)); }
-      `}</style>
       <span style={labelStyle} title={t('sessionEnd.hint')}>
         <span>{t('sessionEnd.label')}</span>
-        <button
-          ref={triggerRef}
-          type="button"
-          className="mcviseron-session-end-trigger"
-          aria-label={t('sessionEnd.label')}
-          aria-haspopup="listbox"
-          aria-expanded={open}
-          title={t('sessionEnd.hint')}
-          style={{
-            ...triggerStyle,
-            borderColor: aiRequested ? 'var(--dsw-alias-state-warn-primary)' : 'var(--dsw-alias-border-l3)',
-          }}
-          disabled={busy}
-          onClick={toggleMenu}
-        >
-          <span>{t(
-            state.mode === 'off'
-              ? 'sessionEnd.off'
-              : state.mode === 'restart'
-                ? 'sessionEnd.restart'
-                : state.mode === 'close'
-                  ? 'sessionEnd.close'
-                  : 'sessionEnd.shutdown',
-          )}</span>
-          <span aria-hidden style={{ fontSize: 10, opacity: 0.75 }}>{open ? '▴' : '▾'}</span>
-        </button>
-        {open && (
-          <div
-            ref={menuRef}
-            role="listbox"
-            aria-label={t('sessionEnd.label')}
-            style={{ ...menuStyle, left: menu.left, bottom: menu.bottom, minWidth: menu.minWidth }}
-          >
-            {([
-              ['off', 'sessionEnd.off', false],
-              ['restart', 'sessionEnd.restart', !state.available.restart],
-              ['close', 'sessionEnd.close', !state.available.close],
-              ['shutdown', 'sessionEnd.shutdown', !state.available.shutdown],
-            ] as const).map(([value, label, disabled]) => (
-              <button
-                key={value}
-                type="button"
-                role="option"
-                aria-selected={state.mode === value}
-                disabled={disabled}
-                className="mcviseron-session-end-option"
-                style={{
-                  ...menuOptionStyle,
-                  color: state.mode === value ? 'var(--dsw-alias-brand-primary)' : menuOptionStyle.color,
-                  fontWeight: state.mode === value ? 600 : 400,
-                  opacity: disabled ? 0.45 : 1,
-                  cursor: disabled ? 'default' : 'pointer',
-                }}
-                onClick={() => { if (!disabled) change(value) }}
-              >
-                <span>{t(label)}</span>
-                {state.mode === value ? <span aria-hidden>✓</span> : null}
-              </button>
-            ))}
-          </div>
-        )}
+        <Menu
+          open={open}
+          anchor={anchor}
+          items={items}
+          selectedId={state.mode}
+          onSelect={id => { change(id as Mode) }}
+          onClose={() => { setOpen(false) }}
+          align="end"
+          side="top"
+          portal
+        />
       </span>
     </span>
   )
