@@ -31,6 +31,15 @@ export const DEFAULT_SESSION_END_CONFIG = {
   ].join('\n'),
 } as const
 
+/** Model-facing policy: when the session-end action is appropriate. */
+const SESSION_END_GUIDANCE = [
+  '[session-end action] set_session_end_action arms one one-shot action after this turn.',
+  'Use it only when this turn changed DSH plugin host/client source, build output (lib/), cordis.patch.yml, profile loader entries, or a setting that is read only at startup, and the change has been built and verified.',
+  'Do not arm it for ordinary project files, docs/README, tests-only changes, live-applied settings, EDA/MATLAB/STM32 project work, or todo-only changes. Do not arm it when nothing was built, installed, or loaded.',
+  'Arm it during the turn, after verification and before the final answer. It runs after the final reply is fully displayed and waits for all running agent turns and background jobs.',
+  'Use close only when the user explicitly asks to close DSH. Shutdown is user-only. If you are unsure whether a restart is required, ask the user instead of arming.',
+].join(' ')
+
 export const Config = z.object({
   enabled: z.boolean().default(DEFAULT_SESSION_END_CONFIG.enabled).volatile(),
   graceMs: z.number().min(0).max(15000).default(DEFAULT_SESSION_END_CONFIG.graceMs).volatile(),
@@ -424,6 +433,30 @@ function serviceOf(ctx: Context, name: string): unknown {
   }
 }
 
+function installGuidance(ctx: Context): void {
+  const inject = (ctx as unknown as { inject?: (deps: string[], callback: (scope: Context) => void) => unknown }).inject
+  if (typeof inject !== 'function') return
+  try {
+    inject.call(ctx, ['systemPrompt'], (scope) => {
+      const systemPrompt = serviceOf(scope, 'systemPrompt') as {
+        section?: (section: { name: string; order: number; text: string }) => unknown
+      } | undefined
+      if (systemPrompt === undefined || typeof systemPrompt.section !== 'function') return
+      try {
+        systemPrompt.section({
+          name: 'plugin:mcviseron-session-end',
+          order: 230,
+          text: SESSION_END_GUIDANCE,
+        })
+      } catch (error) {
+        defaultLog('guidance registration failed: ' + (error instanceof Error ? error.message : String(error)))
+      }
+    })
+  } catch (error) {
+    defaultLog('guidance injection failed: ' + (error instanceof Error ? error.message : String(error)))
+  }
+}
+
 const emailed = new Map<string, number>()
 
 function installAgentTool(ctx: Context, controller: SessionEndController, options: Required<SessionEndOptions>, log: (message: string) => void): void {
@@ -439,9 +472,10 @@ function installAgentTool(ctx: Context, controller: SessionEndController, option
         name: 'set_session_end_action',
         description: [
           'Set the action DSH performs after the current turn has fully finished.',
-          'Use restart only after changing DSH plugin code that requires a restart; use close to quit DSH.',
-          'The action is one-shot, starts off, and is visible to the user. A restart waits until all running agent turns and background jobs finish.',
-          'Shutdown is user-only and is not available through this tool. Do not arm an action for ordinary turns.',
+          'WHEN TO USE: this turn changed DSH plugin host/client source, build output (lib/), cordis.patch.yml, profile loader entries, or a setting read only at startup, and the change is built and verified.',
+          'WHEN NOT TO USE: ordinary project files, docs/README, tests-only changes, live-applied settings, EDA/MATLAB/STM32 work, todo-only changes, or when nothing was built/installed/loaded.',
+          'Arm restart during the turn, after verification and before the final answer. It runs after the final reply is fully displayed and waits for all running agent turns and background jobs.',
+          'Use close only when the user explicitly asks to close DSH. Shutdown is user-only. If unsure whether a restart is required, ask the user instead of arming.',
         ].join(' '),
         parameters: {
           action: {
@@ -597,6 +631,7 @@ export function apply(ctx: Context, config?: SessionEndConfig): void {
         if (event?.type === 'turn/start') controller.onTurnStart(sessionId)
         else if (event?.type === 'turn/end') controller.onTurnEnd(sessionId)
       })
+    installGuidance(ctx)
     installAgentTool(ctx, controller, options, log)
   }
 

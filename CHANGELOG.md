@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **AI 重启判断指引**：为 `set_session_end_action` 增加明确的 WHEN / WHEN NOT 规则，并注册 `plugin:mcviseron-session-end` system prompt 段落：只有本轮修改了 DSH 插件源码 / `lib` / `cordis.patch.yml` / profile loader / 仅启动时读取的配置，且已构建验证时才建议重启；普通项目文件、文档、仅测试、live 设置、EDA/MATLAB/STM32、todo 变更不触发。AI 在最终回复前设置，动作在最终文字显示完后执行。
+
 ### 计划中
 
 - 将「按时间切换」扩展为多时段表（例如白天的多个浅色窗口）。
