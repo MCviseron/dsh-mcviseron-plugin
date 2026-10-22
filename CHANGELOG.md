@@ -4,16 +4,18 @@
 
 ## [Unreleased]
 
-### Fixed
-
-- **v0.6.3 重启后插件不加载**：宿主 bundle 内联的 CJS `nodemailer` 在 ESM 里触发 `Dynamic require of "events" is not supported`，导致整个 `lib/index.js` 导入失败。为所有 host bundle 注入 `createRequire(import.meta.url)` 的 `require` shim，并在 `build.mjs` 构建后实际 `import()` 一次 `lib/index.js` 作为回归门禁。v0.6.3 的 npm 包已发布且仍含此缺陷，需用 v0.6.4 覆盖。
-
 ### 计划中
 
 - 将「按时间切换」扩展为多时段表（例如白天的多个浅色窗口）。
 - 设置行支持「立即测试」预览按钮。
 - Restart 组件支持 macOS/Linux（当前仅 Windows 桌面版）。
 - 把定时巡检任务 prompt 更新为当前单条目架构。
+
+## [0.6.4] - 2026-10-23
+
+### Fixed
+
+- **v0.6.3 重启后插件不加载**：宿主 bundle 内联的 CJS `nodemailer` 在 ESM 里触发 `Dynamic require of "events" is not supported`，导致整个 `lib/index.js` 导入失败。为所有 host bundle 注入 `createRequire(import.meta.url)` 的 `require` shim，并在 `build.mjs` 构建后实际 `import()` 一次 `lib/index.js` 作为回归门禁。v0.6.3 的 npm 包已发布且仍含此缺陷，本版覆盖。
 
 ## [0.6.3] - 2026-10-22
 
