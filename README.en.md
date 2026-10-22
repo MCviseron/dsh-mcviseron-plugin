@@ -2,7 +2,7 @@
 
 English | [中文](README.md)
 
-MCviseron's **master plugin for DeepSeek Harness (DSH)**: one npm package and one `mcviseron` profile entry hosting four components. DSH `client-modules` only composes a browser half for a Loader row whose name exactly equals the package name, so the master entry must be `dsh-mcviseron-plugin`; components run as sub-plugins and own settings sub-pages. The former `dsh-auto-review-restart-fix` and `dsh-task-guard` are merged here and will be deprecated.
+MCviseron's **master plugin for DeepSeek Harness (DSH)**: one npm package and one `mcviseron` profile entry hosting five components. DSH `client-modules` only composes a browser half for a Loader row whose name exactly equals the package name, so the master entry must be `dsh-mcviseron-plugin`; components run as sub-plugins and own settings sub-pages. The former `dsh-auto-review-restart-fix` and `dsh-task-guard` are merged here and will be deprecated.
 
 ## Components
 
@@ -12,6 +12,7 @@ MCviseron's **master plugin for DeepSeek Harness (DSH)**: one npm package and on
 | **Auto-review hardening** | `mcviseron.autoReviewFix` | Stops the whole-Host shutdown from persisting Full access over an Auto session; appends a Chinese translation to the manual-approval prompt |
 | **Todo plan guard** | `mcviseron.taskGuard` | Advisory notices (optional hard stop) when multi-stage work stops updating its todo plan |
 | **Restart DeepSeek Harness** | `mcviseron.restart` | Button in Settings → MCviseron plugin that closes and relaunches the desktop application |
+| **After-session action** | `mcviseron.sessionEnd` | “Restart after session” dropdown in the composer; the AI tool can arm it; restart waits for running tasks |
 
 > 0.6.1 returns to a **single** `mcviseron` entry: DSH `client-modules` only composes a browser half for an exact package-name Loader row, and subpath rows silently dropped the whole client plugin. Components still run as sub-plugins and expose settings sub-pages.
 
@@ -25,9 +26,9 @@ MCviseron's **master plugin for DeepSeek Harness (DSH)**: one npm package and on
 ### 2. Auto-review hardening
 
 - Drops `permissionPresets.set` writes while the root Cordis fiber is not `ACTIVE`, so a whole-Host shutdown no longer migrates Auto sessions to Full access.
-- Appends a `【审查理由 · 中文翻译】` block to the localized `displayReason` only; `reason` and `displayReason.en` stay byte-identical.
+- Appends a `【审查理由 · 中文翻译】` block to the localized `displayReason` and to the audited `reason` (original text stays as the prefix); `displayReason.en` stays byte-identical.
 - Translation uses the session's provider/model (or a pinned pair), caches per source string (256 entries), times out after 6 s, and passes the approval through unchanged on any failure.
-- A reviewer note that is already Chinese (or contains any CJK text) is never translated again; the approval prompt stays as-is.
+- A reviewer note that is predominantly Chinese is never translated again; an English note that merely quotes Chinese or contains a Chinese path is still translated.
 
 ### 3. Todo plan guard
 
@@ -47,12 +48,22 @@ MCviseron's **master plugin for DeepSeek Harness (DSH)**: one npm package and on
 - Desktop-only: under `dsh web` the status route reports unavailable and the row hides.
 - **Why not a tray item**: DSH builds its tray menu inside the Electron main process (`DesktopTray` in `lib/main.js`); plugins run in the Host child process and DSH exposes no tray extension point. The Settings row is the supported equivalent.
 
+### 5. After-session action
+
+- A **“Restart after session”** dropdown left of the composer: Off / Restart DSH / Close DSH / Shut down PC. It starts off on every DSH launch.
+- Runs once after the final reply has fully rendered (3 s grace by default); sending a new message during the grace cancels it.
+- The AI can arm **restart** or **close DSH** through `set_session_end_action` (never shutdown). The composer shows a colored, non-modal reminder; shutdown is user-only.
+- **Restart performs a task probe**: it waits while any agent turn (including one waiting for approval/answer) or background job is running, then restarts. Close/shutdown do not wait. **The Settings restart button is not affected** and still runs immediately.
+- State is in Host memory and one-shot; it is cleared before launch, so a fresh process, plugin load, or repeated turn/end cannot cause a restart loop.
+- **Email link**: if `dsh-email-notify` is installed and configured sendable, arming the action reuses its SMTP settings to send one reminder; the email plugin is not modified. Configure or disable it under Settings → MCviseron plugin → After-session action. See [docs/session-end.md](docs/session-end.md).
+
 ## Settings page
 
 Settings gains a first-level **MCviseron plugin** section (`settings.section`, id `mcviseron`). Components own a tab there when they have a settings surface:
 
 - **Restart**: restart DeepSeek Harness (this component's settings).
-- **Components**: list the four components and their configuration surfaces.
+- **After-session action**: enable switch, render grace, AI email reminder, subject/body templates.
+- **Components**: list the five components and their configuration surfaces.
 
 The Appearance component is intentionally **not** here — its row stays under General → Appearance. Auto review and Todo guard have editable sub-pages; the Components tab is an overview.
 
@@ -93,23 +104,37 @@ Add `dsh-mcviseron-plugin` to `dsh.profile.bundles` and remove `dsh-auto-review-
     restart:
       enabled: true
       appPath: ""
+    sessionEnd:
+      enabled: true
+      graceMs: 3000
+      notifyEmailOnAi: true
+      emailSubject: "[DSH session-end action] {{actionText}}"
+      emailBody: |-
+        The AI requested {{actionText}} after this session.
+
+        Session: {{sessionName}}
+        Session ID: {{sessionId}}
+        Time: {{time}}
+        Reason: {{reason}}
 ```
 
-Defaults: appearance off / `08:00–23:00`; auto-review both guards on, 6 s, 4000 chars; task-guard on, `zh`, stale at 5 / repeat 4, no blocking, step-intent detection and todo translation on (3 s), excludes `todo_write` and `ask_user_question`.
+Defaults: appearance off / `08:00–23:00`; auto-review both guards on, 6 s, 4000 chars; task-guard on, `zh`, stale at 5 / repeat 4, no blocking, step-intent detection and todo translation on (3 s), excludes `todo_write` and `ask_user_question`; session-end on, 3 s grace, AI email reminder on with reusable `dsh-email-notify` SMTP settings.
+
+`sessionEnd`: `enabled` (boolean, true), `graceMs` (0–15000, 3000), `notifyEmailOnAi` (boolean, true), `emailSubject` / `emailBody` (templates; see `docs/session-end.md`).
 
 ## How it works
 
 - `cordis.patch.yml` inserts one `mcviseron` master entry (`name: dsh-mcviseron-plugin`).
-- `src/index.ts` mounts the four components with `ctx.plugin`; each keeps its own `inject` and implementation.
+- `src/index.ts` mounts the five components with `ctx.plugin`; each keeps its own `inject` and implementation.
 - `src/appearance` owns the two loopback routes (`/api/dsh-mcviseron/settings/describe|mutate`) the browser uses; the browser half lives in `src/client/` and registers the settings section and sub-pages.
-- The settings bridge accepts appearance top-level fields and nested `autoReviewFix.*` / `taskGuard.*` / `restart.*` paths.
+- The settings bridge accepts appearance top-level fields and nested `autoReviewFix.*` / `taskGuard.*` / `restart.*` / `sessionEnd.*` paths.
 - The master entry and components unwrap DSH 0.2 volatile config references before use.
 
 ## Compatibility
 
 | DSH version | Status |
 | --- | --- |
-| `0.2.1-rc.2` | ✅ verified (desktop profile; 83 tests + real Cordis contexts) |
+| `0.2.1-rc.2` | ✅ verified (desktop profile; 92 tests + real Cordis contexts) |
 | `0.2.0-rc.x` | ✅ covered by the peer range |
 | `0.1.x` | ❌ unsupported (different settings-namespace model) |
 

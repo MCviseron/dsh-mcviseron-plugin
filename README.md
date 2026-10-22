@@ -2,7 +2,7 @@
 
 [English](README.en.md) | 中文
 
-MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包、一个 `mcviseron` profile 条目挂载四个组件。DSH 的 `client-modules` 只给 Loader 行名称精确等于包名的条目组合浏览器半区，因此 master 条目名必须是 `dsh-mcviseron-plugin`；组件作为子插件运行，设置页提供各自子页。原 `dsh-auto-review-restart-fix` 与 `dsh-task-guard` 已并入本插件并逐步废弃。
+MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包、一个 `mcviseron` profile 条目挂载五个组件。DSH 的 `client-modules` 只给 Loader 行名称精确等于包名的条目组合浏览器半区，因此 master 条目名必须是 `dsh-mcviseron-plugin`；组件作为子插件运行，设置页提供各自子页。原 `dsh-auto-review-restart-fix` 与 `dsh-task-guard` 已并入本插件并逐步废弃。
 
 ## 组件
 
@@ -12,6 +12,7 @@ MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包、一个 `
 | **Auto review 修复** | `mcviseron.autoReviewFix` | 关机不再把 Auto 会话写成完全访问；人审提示追加中文译文 |
 | **Todo 计划守卫** | `mcviseron.taskGuard` | 多阶段任务忘记更新 todo 时发出 notice（可选硬拦截） |
 | **重启 DeepSeek Harness** | `mcviseron.restart` | 「设置 → MCviseron 插件」里的重启按钮：关闭并重新启动桌面应用 |
+| **会话后动作** | `mcviseron.sessionEnd` | 输入框左侧「会话后重启」下拉；AI 工具可设置；重启等待任务结束 |
 
 > 0.6.1 起回到**单一** `mcviseron` 条目：DSH `client-modules` 只给精确包名条目组合浏览器半区，子路径条目会让整个客户端插件（外观行、设置分区、重启回退）消失。组件仍在内部作为子插件运行，设置页有 Auto review / Todo 子页。
 
@@ -51,12 +52,22 @@ MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包、一个 `
 - 只在桌面版可用；`dsh web` 下状态接口返回不可用，设置行自动隐藏。
 - **为什么不做成托盘菜单项**：DSH 的托盘菜单由 Electron 主进程的 `lib/main.js` 直接构建（`DesktopTray`），插件运行在独立的 Host 子进程里，官方没有提供托盘扩展点；因此本组件只能在设置页提供等价入口。
 
+### 5. 会话后动作
+
+- 对话输入框左侧新增 **「会话后重启」** 下拉：关闭 / 重启 DSH / 关闭 DSH / 关闭电脑；默认关闭，每次 DSH 启动都从关闭开始。
+- 本轮最终回复完整显示后（默认再等 3 秒）执行一次；如果用户在这段等待内发了新消息，动作取消。
+- AI 通过工具 `set_session_end_action` 设置 **重启** 或 **关闭 DSH**（不能设置关机）。AI 设置后，输入框出现醒目的非弹窗提示；关机只能由用户在下拉里选择。
+- **重启会先做任务探寻**：只要还有运行中的 agent 会话（含等待审批/回答）或后台 job，就持续等待，直到全部结束；关闭 DSH / 关机不等待。**设置页的重启按钮不受此约束**，仍然立即执行。
+- 状态只存在 Host 内存里，一次性执行；执行前先清除，重启后的新进程不会继承，不会因为加载插件或重复 turn/end 无限重启。
+- **邮件联动**：如果已安装并配置了可发送的 `dsh-email-notify`，AI 开启动作时会复用它的 SMTP 配置发送提醒邮件；不修改邮件插件。可在「设置 → MCviseron 插件 → 会话后动作」关闭或改模板。详见 [docs/session-end.md](docs/session-end.md)。
+
 ## 设置页
 
 设置里新增一个一级分区 **「MCviseron 插件」**（`settings.section`，id `mcviseron`），组件按需在这里拥有子页：
 
 - **重启**：重启 DeepSeek Harness（本组件的设置面）。
-- **组件**：列出四个组件及其配置位置。
+- **会话后动作**：启用开关、显示等待、AI 邮件提醒、邮件主题/正文模板。
+- **组件**：列出五个组件及其配置位置。
 
 外观组件**不在**这里——它的设置行仍留在「通用 → 外观」，位置不变。没有设置面的组件不占用子页；`autoReview` / `taskGuard` 继续通过 profile 配置，组件子页会注明这一点。
 
@@ -110,6 +121,18 @@ pnpm add dsh-mcviseron-plugin
     restart:
       enabled: true
       appPath: ""
+    sessionEnd:
+      enabled: true
+      graceMs: 3000
+      notifyEmailOnAi: true
+      emailSubject: "[DSH 会话后动作] {{actionText}}"
+      emailBody: |-
+        AI 已请求在本轮会话结束后{{actionText}}。
+
+        会话：{{sessionName}}
+        会话 ID：{{sessionId}}
+        时间：{{time}}
+        理由：{{reason}}
 ```
 
 ### 外观（Config 顶层字段）
@@ -156,6 +179,16 @@ pnpm add dsh-mcviseron-plugin
 | `enabled` | boolean | `true` | 是否注册设置页重启按钮与接口 |
 | `appPath` | string | `''` | 显式指定应用 exe；空 = 从 Host 进程推导 |
 
+### `sessionEnd`
+
+| 字段 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `enabled` | boolean | `true` | 是否显示输入框下拉并允许 AI 设置 |
+| `graceMs` | number | `3000` | turn/end 后等待最终文字渲染的时间，0–15000 |
+| `notifyEmailOnAi` | boolean | `true` | AI 开启动作时发送邮件；需要已配置的 `dsh-email-notify` |
+| `emailSubject` | string | `[DSH 会话后动作] {{actionText}}` | 邮件主题模板 |
+| `emailBody` | string | 见上方 YAML | 邮件正文模板，支持 `{{actionText}}` / `{{sessionName}}` / `{{sessionId}}` / `{{time}}` / `{{reason}}` |
+
 ## 工作原理
 
 ### 单一 master 条目
@@ -168,15 +201,15 @@ pnpm add dsh-mcviseron-plugin
       name: dsh-mcviseron-plugin
 ```
 
-包根导出 `.` → `lib/index.js`。`src/index.ts` 的 `apply()` 用 `ctx.plugin` 依次挂载四个子组件，每个子组件保留自己的 `inject`、`Config` 与实现；设置页由 `src/client/` 注册。
+包根导出 `.` → `lib/index.js`。`src/index.ts` 的 `apply()` 用 `ctx.plugin` 依次挂载五个子组件，每个子组件保留自己的 `inject`、`Config` 与实现；设置页由 `src/client/` 注册。
 
 ### 组件装配
 
-- `src/index.ts`：master 条目，挂载 appearance / auto-review-fix / task-guard / restart。
+- `src/index.ts`：master 条目，挂载 appearance / auto-review-fix / task-guard / restart / session-end。
 - `src/appearance/index.ts`：只有 Host 设置桥（`ctx.settings.configure({ auto: false })` + 两条 loopback 路由）；浏览器半边在 `src/client/`，读取 `mcviseron` 命名空间并驱动 `ctx.theme.setTheme`。
 - `src/auto-review-fix/index.ts`：`installAutoReview`，通过 `ctx.inject(['permissionPresets' | 'approval'])` 特性探测并包装服务。
 - `src/task-guard/index.ts`：`installTaskGuard`，注册 `tools/pre-execute`、`tools/post-execute`、`agent/pre-step`、`session/event`。
-- master 与四个子组件都会先 `toPlain()` 展开 DSH 0.2 的 volatile 配置引用，再交给实现。
+- master 与五个子组件都会先 `toPlain()` 展开 DSH 0.2 的 volatile 配置引用，再交给实现。
 
 ### 设置桥
 
@@ -185,7 +218,7 @@ DSH 0.2 的官方设置 apiproxy 不向浏览器暴露第三方命名空间，�
 - `POST /api/dsh-mcviseron/settings/describe`
 - `POST /api/dsh-mcviseron/settings/mutate`
 
-只接受命名空间 `mcviseron`；顶层接受 `enabled` / `lightStart` / `lightEnd`，并允许 `autoReviewFix.*` / `taskGuard.*` / `restart.*` 嵌套路径（类型与范围会校验）。所有请求执行 loopback 地址 + Host 头 + 同源校验。
+只接受命名空间 `mcviseron`；顶层接受 `enabled` / `lightStart` / `lightEnd`，并允许 `autoReviewFix.*` / `taskGuard.*` / `restart.*` / `sessionEnd.*` 嵌套路径（类型与范围会校验）。所有请求执行 loopback 地址 + Host 头 + 同源校验。
 
 ### 时间语义（appearance）
 
@@ -195,7 +228,7 @@ DSH 0.2 的官方设置 apiproxy 不向浏览器暴露第三方命名空间，�
 
 | DSH 版本 | 状态 |
 | --- | --- |
-| `0.2.1-rc.2` | ✅ 本版本验证（desktop profile；83 项测试 + 真实 Cordis 上下文） |
+| `0.2.1-rc.2` | ✅ 本版本验证（desktop profile；92 项测试 + 真实 Cordis 上下文） |
 | `0.2.0-rc.x` | ✅ peer 范围覆盖（同一套设置、审批与 hook 接缝） |
 | `0.1.x` | ❌ 不支持：0.1 的插件自行注册设置命名空间，与本插件的条目 id 命名空间模型不同 |
 
@@ -225,7 +258,7 @@ src/
   volatile.ts                   展开 DSH volatile 配置引用
   loopback.ts                   loopback 信任栅栏
   routes.ts                     settings describe/mutate 桥（含嵌套组件路径）
-  index.ts                      master 条目：Config + 挂载四个子组件
+  index.ts                      master 条目：Config + 挂载五个子组件
   appearance/index.ts           外观子组件：设置桥
   auto-review-fix/index.ts      Auto review 子组件：Config + 装配
   task-guard/index.ts           Todo 守卫子组件：Config + 装配
@@ -261,7 +294,7 @@ test/
 
 ```bash
 pnpm install
-pnpm check     # typecheck + 83 项测试 + 构建
+pnpm check     # typecheck + 92 项测试 + 构建
 ```
 
 构建产物：`lib/index.js`（master ESM）、`lib/appearance.js`、`lib/auto-review-fix.js`、`lib/task-guard.js`、`lib/restart.js` 与 `lib/client.js`（浏览器模块）。`lib/` 不入库。

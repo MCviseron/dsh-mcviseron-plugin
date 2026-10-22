@@ -78,7 +78,7 @@
   "scripts": {
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types test/schedule.test.ts && node --experimental-strip-types test/routes.test.ts && node --experimental-strip-types test/config.test.ts && node --experimental-strip-types test/auto-review-fix.test.ts && node --experimental-strip-types test/auto-review-fix-cordis.test.ts && node --experimental-strip-types test/task-guard.test.ts && node --experimental-strip-types test/task-guard-cordis.test.ts && node --experimental-strip-types test/restart.test.ts && node --experimental-strip-types test/plugin.test.ts",
+    "test": "node --experimental-strip-types test/schedule.test.ts && node --experimental-strip-types test/routes.test.ts && node --experimental-strip-types test/config.test.ts && node --experimental-strip-types test/auto-review-fix.test.ts && node --experimental-strip-types test/auto-review-fix-cordis.test.ts && node --experimental-strip-types test/task-guard.test.ts && node --experimental-strip-types test/task-guard-cordis.test.ts && node --experimental-strip-types test/session-end.test.ts && node --experimental-strip-types test/restart.test.ts && node --experimental-strip-types test/plugin.test.ts",
     "check": "pnpm typecheck && pnpm test && pnpm build",
     "prepare": "pnpm build",
     "prepublishOnly": "pnpm check",
@@ -128,15 +128,6 @@
     }
   },
   "devDependencies": {
-    "@types/node": "^22.20.0",
-    "@types/react": "~18.3.1",
-    "@types/react-dom": "^18.3.5",
-    "esbuild": "^0.24.0",
-    "immer": "10.2.0",
-    "zustand": "4.4.7",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "typescript": "~5.7.2",
     "@deepseek-ai/cordis": "^4.0.5",
     "@deepseek-ai/dsh-client-connection": "^0.2.1-rc.2",
     "@deepseek-ai/dsh-client-locale": "^0.2.1-rc.2",
@@ -145,6 +136,17 @@
     "@deepseek-ai/dsh-client-ui-settings": "^0.2.1-rc.2",
     "@deepseek-ai/dsh-client-ui-slots": "^0.2.1-rc.2",
     "@deepseek-ai/dsh-host-webserver": "^0.2.1-rc.2",
-    "@deepseek-ai/dsh-settings": "^0.2.1-rc.2"
+    "@deepseek-ai/dsh-settings": "^0.2.1-rc.2",
+    "@types/node": "^22.20.0",
+    "@types/nodemailer": "^6.4.15",
+    "@types/react": "~18.3.1",
+    "@types/react-dom": "^18.3.5",
+    "esbuild": "^0.24.0",
+    "immer": "10.2.0",
+    "nodemailer": "^6.9.13",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "~5.7.2",
+    "zustand": "4.4.7"
   }
 }

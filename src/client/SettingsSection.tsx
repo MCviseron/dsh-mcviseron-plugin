@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import type { McviseronKey } from './locales.ts'
-import { AUTO_REVIEW_FIELDS, ConfigForm, TASK_GUARD_FIELDS } from './ConfigForm.tsx'
+import { AUTO_REVIEW_FIELDS, ConfigForm, SESSION_END_FIELDS, TASK_GUARD_FIELDS } from './ConfigForm.tsx'
 import { RestartCard } from './RestartCard.tsx'
 import { pageStyles } from './styles.ts'
 
-type Tab = 'restart' | 'autoReview' | 'taskGuard' | 'components'
+type Tab = 'restart' | 'autoReview' | 'taskGuard' | 'sessionEnd' | 'components'
 
 /** Props composed by the `settings.section` slot. */
 export interface SettingsSectionProps {
@@ -55,6 +55,15 @@ export function SettingsSection({ t }: SettingsSectionProps) {
         <button
           type="button"
           role="tab"
+          aria-selected={tab === 'sessionEnd'}
+          onClick={() => { setTab('sessionEnd') }}
+          style={tab === 'sessionEnd' ? { ...pageStyles.tab, ...pageStyles.tabActive } : pageStyles.tab}
+        >
+          {t('page.tab.sessionEnd')}
+        </button>
+        <button
+          type="button"
+          role="tab"
           aria-selected={tab === 'components'}
           onClick={() => { setTab('components') }}
           style={tab === 'components' ? { ...pageStyles.tab, ...pageStyles.tabActive } : pageStyles.tab}
@@ -83,7 +92,16 @@ export function SettingsSection({ t }: SettingsSectionProps) {
                 fields={TASK_GUARD_FIELDS}
               />
             )
-            : (
+            : tab === 'sessionEnd'
+              ? (
+                <ConfigForm
+                  t={t}
+                  title="page.sessionEnd.title"
+                  description="page.sessionEnd.description"
+                  fields={SESSION_END_FIELDS}
+                />
+              )
+              : (
               <div style={pageStyles.card}>
             <div style={pageStyles.cardTitle}>{t('page.components.title')}</div>
             <div style={pageStyles.componentRow}>
@@ -101,6 +119,10 @@ export function SettingsSection({ t }: SettingsSectionProps) {
             <div style={pageStyles.componentRow}>
               <span style={pageStyles.componentName}>{t('page.components.restart')}</span>
               <span style={pageStyles.componentHint}>{t('page.components.restartHint')}</span>
+            </div>
+            <div style={pageStyles.componentRow}>
+              <span style={pageStyles.componentName}>{t('page.components.sessionEnd')}</span>
+              <span style={pageStyles.componentHint}>{t('page.components.sessionEndHint')}</span>
             </div>
             <div style={pageStyles.cardStatus}>{t('page.components.note')}</div>
           </div>

@@ -64,6 +64,8 @@ test('the master entry installs all components into one context', async () => {
       '/api/dsh-mcviseron/diagnostics',
       '/api/dsh-mcviseron/restart/execute',
       '/api/dsh-mcviseron/restart/status',
+      '/api/dsh-mcviseron/session-end/set',
+      '/api/dsh-mcviseron/session-end/state',
       '/api/dsh-mcviseron/settings/describe',
       '/api/dsh-mcviseron/settings/mutate',
     ])
@@ -105,7 +107,7 @@ test('the master entry also loads with no config at all', async () => {
   try {
     await settle()
     assert.equal(h.root.fiber.state, 2)
-    assert.equal(h.routes.length, 5)
+    assert.equal(h.routes.length, 7)
   } finally {
     await (fiber as any).dispose()
   }

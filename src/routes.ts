@@ -63,6 +63,11 @@ const FIELD_RULES: Record<string, FieldRule> = {
   'taskGuard.exclude': { type: 'strings' },
   'restart.enabled': { type: 'boolean' },
   'restart.appPath': { type: 'string' },
+  'sessionEnd.enabled': { type: 'boolean' },
+  'sessionEnd.graceMs': { type: 'number', min: 0, max: 15000 },
+  'sessionEnd.notifyEmailOnAi': { type: 'boolean' },
+  'sessionEnd.emailSubject': { type: 'string' },
+  'sessionEnd.emailBody': { type: 'string' },
 }
 
 function ruleFor(path: unknown): FieldRule | undefined {
@@ -146,6 +151,7 @@ function toPluginView(descriptor: SettingsBridgeView): Record<string, unknown> {
       autoReviewFix: isRecord(record.autoReviewFix) ? record.autoReviewFix : {},
       taskGuard: isRecord(record.taskGuard) ? record.taskGuard : {},
       restart: isRecord(record.restart) ? record.restart : {},
+      sessionEnd: isRecord(record.sessionEnd) ? record.sessionEnd : {},
     },
     revision: descriptor.revision,
   }

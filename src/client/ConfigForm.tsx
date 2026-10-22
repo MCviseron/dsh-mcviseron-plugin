@@ -5,7 +5,7 @@ import { Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import { pageStyles } from './styles.ts'
 
 type Status = 'loading' | 'ready' | 'saving' | 'saved' | 'failed' | 'unavailable'
-type FieldKind = 'switch' | 'number' | 'text' | 'select' | 'list'
+type FieldKind = 'switch' | 'number' | 'text' | 'textarea' | 'select' | 'list'
 
 /** One editable config field backed by a nested entry path. */
 export interface ConfigField {
@@ -89,6 +89,25 @@ function TextControl({ value, disabled, onCommit }: {
   )
 }
 
+function TextareaControl({ value, disabled, onCommit }: {
+  value: string
+  disabled: boolean
+  onCommit: (value: string) => void
+}) {
+  const [draft, setDraft] = useState(value)
+  useEffect(() => { setDraft(value) }, [value])
+  return (
+    <textarea
+      value={draft}
+      disabled={disabled}
+      rows={4}
+      onChange={(event) => { setDraft(event.target.value) }}
+      onBlur={() => { if (draft !== value) onCommit(draft) }}
+      style={{ ...pageStyles.formControl, minHeight: 88, resize: 'vertical' }}
+    />
+  )
+}
+
 function ListControl({ value, disabled, onCommit }: {
   value: string[]
   disabled: boolean
@@ -144,6 +163,8 @@ function renderControl(
       )
     case 'text':
       return <TextControl value={typeof value === 'string' ? value : ''} disabled={disabled} onCommit={commit} />
+    case 'textarea':
+      return <TextareaControl value={typeof value === 'string' ? value : ''} disabled={disabled} onCommit={commit} />
     case 'list':
       return (
         <ListControl
@@ -281,4 +302,13 @@ export const TASK_GUARD_FIELDS: readonly ConfigField[] = [
   { path: ['taskGuard', 'todoTranslationTimeoutMs'], label: 'form.taskGuard.todoTimeout', kind: 'number', min: 500, max: 15000 },
   { path: ['taskGuard', 'include'], label: 'form.taskGuard.include', hint: 'form.taskGuard.listHint', kind: 'list' },
   { path: ['taskGuard', 'exclude'], label: 'form.taskGuard.exclude', hint: 'form.taskGuard.listHint', kind: 'list' },
+]
+
+/** Session-end action fields. */
+export const SESSION_END_FIELDS: readonly ConfigField[] = [
+  { path: ['sessionEnd', 'enabled'], label: 'form.sessionEnd.enabled', hint: 'form.sessionEnd.enabledHint', kind: 'switch' },
+  { path: ['sessionEnd', 'graceMs'], label: 'form.sessionEnd.grace', hint: 'form.sessionEnd.graceHint', kind: 'number', min: 0, max: 15000 },
+  { path: ['sessionEnd', 'notifyEmailOnAi'], label: 'form.sessionEnd.notifyEmail', hint: 'form.sessionEnd.notifyEmailHint', kind: 'switch' },
+  { path: ['sessionEnd', 'emailSubject'], label: 'form.sessionEnd.emailSubject', kind: 'text' },
+  { path: ['sessionEnd', 'emailBody'], label: 'form.sessionEnd.emailBody', hint: 'form.sessionEnd.emailBodyHint', kind: 'textarea' },
 ]

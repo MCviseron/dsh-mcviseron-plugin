@@ -98,6 +98,7 @@ test('describe returns the normalized appearance entry', async () => {
       autoReviewFix: {},
       taskGuard: {},
       restart: {},
+      sessionEnd: {},
     },
     revision: 3,
   })
@@ -124,6 +125,7 @@ test('mutate writes the appearance fields and returns the persisted view', async
     autoReviewFix: {},
     taskGuard: {},
     restart: {},
+    sessionEnd: {},
   })
   assert.equal(settings.revision, 4)
 })
@@ -153,6 +155,9 @@ test('mutate accepts nested component config paths and rejects bad values', asyn
       { op: 'set', path: ['autoReviewFix', 'translateApprovalReason'], value: false },
       { op: 'set', path: ['taskGuard', 'locale'], value: 'en' },
       { op: 'set', path: ['taskGuard', 'staleAfterCalls'], value: 3 },
+      { op: 'set', path: ['sessionEnd', 'graceMs'], value: 2500 },
+      { op: 'set', path: ['sessionEnd', 'notifyEmailOnAi'], value: false },
+      { op: 'set', path: ['sessionEnd', 'emailSubject'], value: 'subject' },
     ],
   }))
   assert.equal(ok.status, 200)
@@ -161,6 +166,9 @@ test('mutate accepts nested component config paths and rejects bad values', asyn
   assert.equal(view.value.autoReviewFix.translateApprovalReason, false)
   assert.equal(view.value.taskGuard.locale, 'en')
   assert.equal(view.value.taskGuard.staleAfterCalls, 3)
+  assert.equal(view.value.sessionEnd.graceMs, 2500)
+  assert.equal(view.value.sessionEnd.notifyEmailOnAi, false)
+  assert.equal(view.value.sessionEnd.emailSubject, 'subject')
 
   const badLocale = await call(route(MCVISERON_API.mutate, settings), makeRequest({
     ns: MCVISERON_SETTINGS_NAMESPACE,

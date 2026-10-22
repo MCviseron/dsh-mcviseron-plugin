@@ -135,6 +135,35 @@ export function makeTaskScript(target: RestartTarget, taskName: string, delaySec
   ].join('\n')
 }
 
+/**
+ * Schedule the desktop app to start again, then close its Electron main process.
+ * Exported for the session-end action; the settings route keeps its own throttle.
+ * @param target - resolved desktop executable and PIDs.
+ */
+export function launchRestart(target: RestartTarget): void {
+  launchHelper(target)
+}
+
+/**
+ * Close the desktop app without relaunching it.
+ * @param target - resolved desktop target, when available.
+ */
+export function closeDesktop(target?: RestartTarget): void {
+  const pid = target?.mainPid ?? process.ppid
+  setTimeout(() => {
+    try {
+      if (target !== undefined || process.platform === 'win32') process.kill(pid)
+      else process.exit(0)
+    } catch {
+      try {
+        process.exit(0)
+      } catch {
+        /* the host is already gone */
+      }
+    }
+  }, 300)
+}
+
 /** Register the direct-launch task, then close the Electron main process. */
 function launchHelper(target: RestartTarget): void {
   const logFile = restartLogPath()

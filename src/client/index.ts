@@ -5,6 +5,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 import { AppearanceScheduleRow } from './AppearanceScheduleRow.tsx'
 import { FallbackRestartRow } from './FallbackRestartRow.tsx'
+import { SessionEndControl } from './SessionEndControl.tsx'
 import { SettingsSection } from './SettingsSection.tsx'
 import { ScheduleDriver, type ThemeFace } from './driver.ts'
 import { en, zh, type McviseronKey } from './locales.ts'
@@ -15,6 +16,14 @@ const NS = 'mcviseron'
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
     mcviseron: McviseronKey
+  }
+
+  interface SlotMap {
+    'conversation.input.left': {
+      kind: 'list'
+      scope: 'session'
+      owner: { children?: never }
+    }
   }
 }
 
@@ -104,6 +113,12 @@ export function apply(ctx: ClientContext): void {
     order: 13,
     locale: NS,
   }, FallbackRestartRow)
+
+  registerSafely(ctx, 'conversation.input.left', {
+    id: 'mcviseron-session-end',
+    order: 20,
+    locale: NS,
+  }, SessionEndControl)
 
   registerSafely(ctx, 'settings.section', {
     id: 'mcviseron',
