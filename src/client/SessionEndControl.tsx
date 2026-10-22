@@ -3,7 +3,6 @@ import {
   IconChevronDownOutlineRegular,
   IconClockOutlineRegular,
   IconCloseCircleFillRegular,
-  IconCloseOutlineRegular,
   IconRefreshOutlineRegular,
   IconStopFillRegular,
   Menu,
@@ -195,7 +194,7 @@ export function SessionEndControl(props: SessionEndControlProps) {
       : ''
 
   const items = [
-    { id: 'off', label: t('sessionEnd.off'), icon: <IconCloseOutlineRegular /> },
+    { id: 'off', label: t('sessionEnd.off'), icon: <IconClockOutlineRegular /> },
     {
       id: 'restart',
       label: t('sessionEnd.restart'),

@@ -50,7 +50,7 @@ MCviseron's **master plugin for DeepSeek Harness (DSH)**: one npm package and on
 
 ### 5. After-session action
 
-- A **“Restart after session”** dropdown left of the composer: Off / Restart DSH / Close DSH / Shut down PC. It starts off on every DSH launch.
+- A **“Restart after session”** dropdown left of the composer: No action / Restart DSH / Close DSH / Shut down PC. It starts with No action on every DSH launch.
 - Runs once after the final reply has fully rendered (3 s grace by default); sending a new message during the grace cancels it.
 - The AI can arm **restart** or **close DSH** through `set_session_end_action` (never shutdown). The composer shows a colored, non-modal reminder; shutdown is user-only.
 - **Restart performs a task probe**: it waits while any agent turn (including one waiting for approval/answer) or background job is running, then restarts. Close/shutdown do not wait. **The Settings restart button is not affected** and still runs immediately.
