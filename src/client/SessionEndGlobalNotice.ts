@@ -11,6 +11,7 @@ export interface GlobalSessionEndAction {
 }
 
 const HOST_ID = 'mcviseron-session-end-global'
+const FALLBACK_TOP = 56
 
 /** Human label for one AI-armed process action. */
 export function globalNoticeText(action: GlobalSessionEndAction): string {
@@ -23,6 +24,20 @@ export function globalNoticeKey(action: GlobalSessionEndAction): string {
   return action.sessionId + ':' + action.mode
 }
 
+function navigationBottom(): number {
+  for (const selector of ['header', '[role="banner"]']) {
+    const element = document.querySelector(selector)
+    if (element === null) continue
+    const rect = element.getBoundingClientRect()
+    if (rect.height > 0 && rect.top <= 8) return Math.round(rect.bottom)
+  }
+  return FALLBACK_TOP
+}
+
+function placeBelowNavigation(host: HTMLDivElement): void {
+  host.style.top = String(navigationBottom()) + 'px'
+}
+
 function ensureHost(): HTMLDivElement | undefined {
   if (typeof document === 'undefined') return undefined
   const existing = document.getElementById(HOST_ID)
@@ -33,7 +48,7 @@ function ensureHost(): HTMLDivElement | undefined {
   host.setAttribute('aria-live', 'polite')
   host.style.cssText = [
     'position:fixed',
-    'top:12px',
+    'top:56px',
     'right:12px',
     'z-index:10000',
     'display:flex',
@@ -42,6 +57,7 @@ function ensureHost(): HTMLDivElement | undefined {
     'max-width:min(380px,calc(100vw - 24px))',
     'pointer-events:none',
   ].join(';')
+  placeBelowNavigation(host)
   document.body.appendChild(host)
   return host
 }
@@ -121,6 +137,7 @@ export function startSessionEndGlobalNotice(): () => void {
     }
     const host = ensureHost()
     if (host === undefined) return
+    placeBelowNavigation(host)
     host.replaceChildren(...visible.map(action => card(action, () => {
       dismissed.add(globalNoticeKey(action))
       render(actions)
@@ -143,11 +160,17 @@ export function startSessionEndGlobalNotice(): () => void {
     }
   }
 
+  const onResize = (): void => {
+    const host = document.getElementById(HOST_ID) as HTMLDivElement | null
+    if (host !== null) placeBelowNavigation(host)
+  }
+  window.addEventListener('resize', onResize)
   void poll()
   timer = setInterval(() => { void poll() }, 2000)
   return () => {
     stopped = true
     if (timer !== undefined) clearInterval(timer)
+    window.removeEventListener('resize', onResize)
     clear()
   }
 }
