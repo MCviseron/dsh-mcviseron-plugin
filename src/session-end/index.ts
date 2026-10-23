@@ -580,7 +580,19 @@ function installAgentTool(ctx: Context, controller: SessionEndController, option
           }
           const session = exec.agent?.session as { header?: { title?: unknown; name?: unknown }; title?: unknown } | undefined
           const title = session?.header?.title ?? session?.header?.name ?? session?.title
-          const label = typeof title === 'string' && title !== '' ? title : ''
+          let label = typeof title === 'string' && title !== '' ? title : ''
+          if (label === '') {
+            try {
+              const titles = serviceOf(ctx, 'sessionTitle') as { get?: (value: unknown) => unknown } | undefined
+              const snapshot = titles?.get?.(session)
+              const folded = snapshot !== null && typeof snapshot === 'object'
+                ? (snapshot as { title?: unknown }).title
+                : undefined
+              if (typeof folded === 'string' && folded !== '') label = folded
+            } catch {
+              /* title is best-effort; the global notice falls back to the id */
+            }
+          }
           controller.set(sessionId, action, 'ai', label)
           if (action !== 'off' && options.notifyEmailOnAi) {
             const key = sessionId + ':' + action
