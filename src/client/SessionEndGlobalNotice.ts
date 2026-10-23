@@ -12,6 +12,7 @@ export interface GlobalSessionEndAction {
 
 const HOST_ID = 'mcviseron-session-end-global'
 const FALLBACK_TOP = 56
+const MIN_TOP = 80
 
 /** Human label for one AI-armed process action. */
 export function globalNoticeText(action: GlobalSessionEndAction): string {
@@ -35,7 +36,9 @@ function navigationBottom(): number {
 }
 
 function placeBelowNavigation(host: HTMLDivElement): void {
-  host.style.top = String(navigationBottom()) + 'px'
+  // Keep a visual gap below the navigation bar; the previous exact-bottom
+  // placement overlapped the header at 1.5x scaling.
+  host.style.top = String(Math.max(navigationBottom() + 24, MIN_TOP)) + 'px'
 }
 
 function ensureHost(): HTMLDivElement | undefined {
