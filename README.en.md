@@ -27,6 +27,7 @@ MCviseron's **master plugin for DeepSeek Harness (DSH)**: one npm package and on
 ### 2. Auto-review hardening
 
 - Drops `permissionPresets.set` writes while the root Cordis fiber is not `ACTIVE`, so a whole-Host shutdown no longer migrates Auto sessions to Full access.
+- Bounds the Auto-review context: wraps only the reviewer `llm.stream` call, keeps the pending action, project constraints and every human instruction, compacts old tool calls/images/oversized arguments, and caps history at 120k chars by default. See [docs/auto-review-context.md](docs/auto-review-context.md).
 - Appends a `【审查理由 · 中文翻译】` block to the localized `displayReason` and to the audited `reason` (original text stays as the prefix); `displayReason.en` stays byte-identical.
 - Translation uses the session's provider/model (or a pinned pair), caches per source string (256 entries), times out after 6 s, and passes the approval through unchanged on any failure.
 - A reviewer note that is predominantly Chinese is never translated again; an English note that merely quotes Chinese or contains a Chinese path is still translated.
@@ -143,7 +144,7 @@ Defaults: appearance off / `08:00–23:00`; auto-review both guards on, 6 s, 400
 
 | DSH version | Status |
 | --- | --- |
-| `0.2.1-rc.2` | ✅ verified (desktop profile; 101 tests + real Cordis contexts) |
+| `0.2.1-rc.2` | ✅ verified (desktop profile; 108 tests + real Cordis contexts) |
 | `0.2.0-rc.x` | ✅ covered by the peer range |
 | `0.1.x` | ❌ unsupported (different settings-namespace model) |
 

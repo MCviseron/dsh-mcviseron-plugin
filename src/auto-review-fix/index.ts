@@ -15,6 +15,9 @@ export const DEFAULT_AUTO_REVIEW_CONFIG = {
   translateMaxChars: 4000,
   translateProvider: '',
   translateModel: '',
+  reviewContextGuard: true,
+  reviewMaxHistoryChars: 120000,
+  reviewKeepRecentEntries: 16,
 } as const
 
 export const Config = z.object({
@@ -24,6 +27,9 @@ export const Config = z.object({
   translateMaxChars: z.number().min(100).max(20000).default(DEFAULT_AUTO_REVIEW_CONFIG.translateMaxChars).volatile(),
   translateProvider: z.string().default(DEFAULT_AUTO_REVIEW_CONFIG.translateProvider).volatile(),
   translateModel: z.string().default(DEFAULT_AUTO_REVIEW_CONFIG.translateModel).volatile(),
+  reviewContextGuard: z.boolean().default(DEFAULT_AUTO_REVIEW_CONFIG.reviewContextGuard).volatile(),
+  reviewMaxHistoryChars: z.number().min(20000).max(600000).default(DEFAULT_AUTO_REVIEW_CONFIG.reviewMaxHistoryChars).volatile(),
+  reviewKeepRecentEntries: z.number().min(4).max(64).default(DEFAULT_AUTO_REVIEW_CONFIG.reviewKeepRecentEntries).volatile(),
 }).default(DEFAULT_AUTO_REVIEW_CONFIG)
 
 export interface AutoReviewConfig {
@@ -33,6 +39,9 @@ export interface AutoReviewConfig {
   translateMaxChars?: number
   translateProvider?: string
   translateModel?: string
+  reviewContextGuard?: boolean
+  reviewMaxHistoryChars?: number
+  reviewKeepRecentEntries?: number
 }
 
 /**

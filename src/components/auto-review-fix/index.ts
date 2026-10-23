@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
+import { installReviewContextGuard, type ReviewContextSettings } from './review-context.ts'
 import {
   chineseKey,
   cleanTranslation,
@@ -42,6 +43,7 @@ const FIBER_STATE_ACTIVE = 2
 /** Settings actually used at runtime. */
 export interface AutoReviewSettings extends TranslationSettings {
   keepPresetGuard: boolean
+  reviewContext: ReviewContextSettings
 }
 
 /** Service objects already guarded in this process (survives plugin reloads). */
@@ -87,6 +89,11 @@ export function normalizeConfig(config?: unknown): AutoReviewSettings {
     maxChars: numberSetting(source, 'translateMaxChars', 4000, 100, 20000),
     provider: stringSetting(source, 'translateProvider', ''),
     model: stringSetting(source, 'translateModel', ''),
+    reviewContext: {
+      enabled: boolSetting(source, 'reviewContextGuard', true),
+      maxHistoryChars: numberSetting(source, 'reviewMaxHistoryChars', 120000, 20000, 600000),
+      keepRecentEntries: numberSetting(source, 'reviewKeepRecentEntries', 16, 4, 64),
+    },
   }
 }
 
@@ -410,6 +417,7 @@ function installApprovalTranslation(ctx: Context, settings: AutoReviewSettings, 
 export function installAutoReview(ctx: Context, config?: unknown): void {
   const settings = normalizeConfig(config)
   if (settings.keepPresetGuard) installPresetGuard(ctx)
+  if (settings.reviewContext.enabled) installReviewContextGuard(ctx, settings.reviewContext)
   if (settings.enabled) {
     const relay = createRejectionRelay()
     installRejectionRelay(ctx, relay)

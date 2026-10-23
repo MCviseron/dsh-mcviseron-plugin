@@ -29,7 +29,8 @@ MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包、一个 `
 
 1. **关机预设守卫**：Auto review 在卸载时会调用 `permissionPresets.set` 把仍处于 Auto 的会话改成 `danger-full-access`。整套宿主退出时这是错误落盘；组件在根 Cordis fiber 不是 `ACTIVE` 时丢弃该写入（运行中移除插件仍然照常迁移）。
 2. **审批理由中文译文**：自动审查拒绝并转人工审批时，`displayReason` 里的英文审查理由原样保留，只在本地化文本末尾追加 `【审查理由 · 中文翻译】` 段落；同时把同一段译文追加到 `reason` 末尾（审计原文保持开头不变），让只读取 `approval/asked` 的邮箱兜底也能收到译文。
-3. **转手动被拒理由回传**：当 `approval.request` 返回 `rejected` 且该审批来自 Auto review 时，组件把自动审查理由（含译文）作为 `plugin:auto-review-fix` notice 附到该工具结果的 `additionalContexts`；AI 下一次就能看到「为什么被拒」，而不是只看到 `the user rejected tool ...`。注意：DSH 审批面板目前没有人类理由输入框，回传的是自动审查理由。
+3. **reviewer 上下文裁剪**：长会话不再把整段历史塞进 Auto review 模型；只包装 reviewer 的 `llm.stream`，保留当前动作、工程约束和全部人类指令，旧工具调用/图片/超长参数压缩，默认历史上限 120k 字符。详见 [docs/auto-review-context.md](docs/auto-review-context.md)。
+4. **转手动被拒理由回传**：当 `approval.request` 返回 `rejected` 且该审批来自 Auto review 时，组件把自动审查理由（含译文）作为 `plugin:auto-review-fix` notice 附到该工具结果的 `additionalContexts`；AI 下一次就能看到「为什么被拒」，而不是只看到 `the user rejected tool ...`。注意：DSH 审批面板目前没有人类理由输入框，回传的是自动审查理由。
 
 翻译使用当前会话的 provider/model 再发一次短请求（可选固定 provider/model），按原文缓存（进程内，上限 256），超时 6 秒可配。**任何失败都原样放行审批**：没有 `llm`、没有会话路由、宿主没有 `displayReason`、超时、模型报错——都不会阻塞审批，也不会改写审查文本。
 
@@ -237,7 +238,7 @@ DSH 0.2 的官方设置 apiproxy 不向浏览器暴露第三方命名空间，�
 
 | DSH 版本 | 状态 |
 | --- | --- |
-| `0.2.1-rc.2` | ✅ 本版本验证（desktop profile；101 项测试 + 真实 Cordis 上下文） |
+| `0.2.1-rc.2` | ✅ 本版本验证（desktop profile；108 项测试 + 真实 Cordis 上下文） |
 | `0.2.0-rc.x` | ✅ peer 范围覆盖（同一套设置、审批与 hook 接缝） |
 | `0.1.x` | ❌ 不支持：0.1 的插件自行注册设置命名空间，与本插件的条目 id 命名空间模型不同 |
 
@@ -303,7 +304,7 @@ test/
 
 ```bash
 pnpm install
-pnpm check     # typecheck + 101 项测试 + 构建
+pnpm check     # typecheck + 108 项测试 + 构建
 ```
 
 构建产物：`lib/index.js`（master ESM）、`lib/appearance.js`、`lib/auto-review-fix.js`、`lib/task-guard.js`、`lib/restart.js` 与 `lib/client.js`（浏览器模块）。`lib/` 不入库。

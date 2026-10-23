@@ -262,6 +262,9 @@ export function ConfigForm({ t, title, description, fields }: ConfigFormProps) {
 
 /** Auto-review component fields. */
 export const AUTO_REVIEW_FIELDS: readonly ConfigField[] = [
+  { path: ['autoReviewFix', 'reviewContextGuard'], label: 'form.autoReview.reviewGuard', hint: 'form.autoReview.reviewGuardHint', kind: 'switch' },
+  { path: ['autoReviewFix', 'reviewMaxHistoryChars'], label: 'form.autoReview.reviewMaxHistory', hint: 'form.autoReview.reviewMaxHistoryHint', kind: 'number', min: 20000, max: 600000 },
+  { path: ['autoReviewFix', 'reviewKeepRecentEntries'], label: 'form.autoReview.reviewKeepRecent', kind: 'number', min: 4, max: 64 },
   { path: ['autoReviewFix', 'translateApprovalReason'], label: 'form.autoReview.translate', hint: 'form.autoReview.translateHint', kind: 'switch' },
   { path: ['autoReviewFix', 'keepPresetGuard'], label: 'form.autoReview.keepPreset', hint: 'form.autoReview.keepPresetHint', kind: 'switch' },
   { path: ['autoReviewFix', 'translateTimeoutMs'], label: 'form.autoReview.timeout', kind: 'number', min: 500, max: 60000 },
