@@ -5,6 +5,7 @@ export interface GlobalSessionEndAction {
   label: string
   mode: 'restart' | 'close' | 'shutdown'
   requestedBy: 'ai'
+  armedAt: number
   waiting: boolean
   runningAgents: number
   runningJobs: number
@@ -12,7 +13,7 @@ export interface GlobalSessionEndAction {
 
 const HOST_ID = 'mcviseron-session-end-global'
 const FALLBACK_TOP = 56
-const MIN_TOP = 80
+const MIN_TOP = 120
 
 /** Human label for one AI-armed process action. */
 export function globalNoticeText(action: GlobalSessionEndAction): string {
@@ -22,7 +23,7 @@ export function globalNoticeText(action: GlobalSessionEndAction): string {
 }
 
 export function globalNoticeKey(action: GlobalSessionEndAction): string {
-  return action.sessionId + ':' + action.mode
+  return action.sessionId + ':' + action.mode + ':' + String(action.armedAt)
 }
 
 function navigationBottom(): number {
@@ -36,9 +37,12 @@ function navigationBottom(): number {
 }
 
 function placeBelowNavigation(host: HTMLDivElement): void {
-  // Keep a visual gap below the navigation bar; the previous exact-bottom
-  // placement overlapped the header at 1.5x scaling.
-  host.style.top = String(Math.max(navigationBottom() + 24, MIN_TOP)) + 'px'
+  // A header that spans the whole app would otherwise put the fixed card below
+  // the viewport. Use a bounded nav measurement and a fixed floor; the card is
+  // always visibly below the top bar.
+  const measured = navigationBottom()
+  const nav = measured > 0 && measured < 240 ? measured : 56
+  host.style.top = String(Math.max(nav + 48, MIN_TOP)) + 'px'
 }
 
 function ensureHost(): HTMLDivElement | undefined {

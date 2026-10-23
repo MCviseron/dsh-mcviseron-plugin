@@ -93,6 +93,7 @@ export interface SessionEndDeps {
 export interface SessionEndGlobalAction extends SessionEndView {
   sessionId: string
   label: string
+  armedAt: number
 }
 
 export interface SessionEndController {
@@ -108,6 +109,7 @@ interface Entry {
   mode: Exclude<SessionEndMode, 'off'>
   requestedBy: 'user' | 'ai'
   label?: string
+  armedAt: number
   waiting: boolean
   runningAgents: number
   runningJobs: number
@@ -332,6 +334,7 @@ export function createSessionEndController(deps: SessionEndDeps = {}): SessionEn
       return [...entries.entries()].map(([sessionId, entry]) => ({
         sessionId,
         label: entry.label ?? '',
+        armedAt: entry.armedAt,
         ...view(sessionId),
       }))
     },
@@ -351,6 +354,7 @@ export function createSessionEndController(deps: SessionEndDeps = {}): SessionEn
         mode,
         requestedBy,
         ...(label === undefined || label === '' ? {} : { label }),
+        armedAt: Date.now(),
         waiting: false,
         runningAgents: 0,
         runningJobs: 0,

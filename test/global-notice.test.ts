@@ -8,6 +8,7 @@ function action(overrides: Partial<GlobalSessionEndAction> = {}): GlobalSessionE
     label: 'ESP01S无线烧录',
     mode: 'restart',
     requestedBy: 'ai',
+    armedAt: 1,
     waiting: false,
     runningAgents: 0,
     runningJobs: 0,
@@ -22,6 +23,6 @@ test('the global notice names the session and the AI action', () => {
 })
 
 test('the global notice identity is session + mode', () => {
-  assert.equal(globalNoticeKey(action()), 'session-1234567890:restart')
-  assert.equal(globalNoticeKey(action({ mode: 'close' })), 'session-1234567890:close')
+  assert.equal(globalNoticeKey(action()), 'session-1234567890:restart:1')
+  assert.equal(globalNoticeKey(action({ mode: 'close' })), 'session-1234567890:close:1')
 })
