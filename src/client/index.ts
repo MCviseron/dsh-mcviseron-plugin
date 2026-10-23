@@ -3,6 +3,7 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
+import { AUTH_COOKIE_API } from '../api.ts'
 import { AppearanceScheduleRow } from './AppearanceScheduleRow.tsx'
 import { FallbackRestartRow } from './FallbackRestartRow.tsx'
 import { SessionEndControl } from './SessionEndControl.tsx'
@@ -12,6 +13,7 @@ import { en, zh, type McviseronKey } from './locales.ts'
 import { sectionPresence } from './section-presence.ts'
 
 const NS = 'mcviseron'
+let authCookiePruneStarted = false
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -77,6 +79,19 @@ function registerSafely(
  * @param ctx - client cordis context.
  */
 export function apply(ctx: ClientContext): void {
+  if (!authCookiePruneStarted) {
+    authCookiePruneStarted = true
+    try {
+      void fetch(AUTH_COOKIE_API.prune, {
+        method: 'POST',
+        credentials: 'same-origin',
+        cache: 'no-store',
+      }).catch(() => {})
+    } catch {
+      /* a shell without fetch still loads the rest of the plugin */
+    }
+  }
+
   try {
     ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'mcviseron: dictionaries')
   } catch (error) {

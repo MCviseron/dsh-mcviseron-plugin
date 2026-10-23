@@ -121,6 +121,10 @@ export function SettingsSection({ t }: SettingsSectionProps) {
               <span style={pageStyles.componentHint}>{t('page.components.restartHint')}</span>
             </div>
             <div style={pageStyles.componentRow}>
+              <span style={pageStyles.componentName}>{t('page.components.authCookie')}</span>
+              <span style={pageStyles.componentHint}>{t('page.components.authCookieHint')}</span>
+            </div>
+            <div style={pageStyles.componentRow}>
               <span style={pageStyles.componentName}>{t('page.components.sessionEnd')}</span>
               <span style={pageStyles.componentHint}>{t('page.components.sessionEndHint')}</span>
             </div>

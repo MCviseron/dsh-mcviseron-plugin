@@ -2,7 +2,7 @@
 
 [English](README.en.md) | 中文
 
-MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包、一个 `mcviseron` profile 条目挂载五个组件。DSH 的 `client-modules` 只给 Loader 行名称精确等于包名的条目组合浏览器半区，因此 master 条目名必须是 `dsh-mcviseron-plugin`；组件作为子插件运行，设置页提供各自子页。原 `dsh-auto-review-restart-fix` 与 `dsh-task-guard` 已并入本插件并逐步废弃。
+MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包、一个 `mcviseron` profile 条目挂载六个组件。DSH 的 `client-modules` 只给 Loader 行名称精确等于包名的条目组合浏览器半区，因此 master 条目名必须是 `dsh-mcviseron-plugin`；组件作为子插件运行，设置页提供各自子页。原 `dsh-auto-review-restart-fix` 与 `dsh-task-guard` 已并入本插件并逐步废弃。
 
 ## 组件
 
@@ -13,6 +13,7 @@ MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包、一个 `
 | **Todo 计划守卫** | `mcviseron.taskGuard` | 多阶段任务忘记更新 todo 时发出 notice（可选硬拦截） |
 | **重启 DeepSeek Harness** | `mcviseron.restart` | 「设置 → MCviseron 插件」里的重启按钮：关闭并重新启动桌面应用 |
 | **会话后动作** | `mcviseron.sessionEnd` | 输入框左侧「会话后重启」下拉；AI 工具可设置；重启等待任务结束 |
+| **认证 cookie 清理** | 内置 | 每次页面加载过期旧 `dsh-auth-*`，只保留当前，避免重启把请求头推到 16KB |
 
 > 0.6.1 起回到**单一** `mcviseron` 条目：DSH `client-modules` 只给精确包名条目组合浏览器半区，子路径条目会让整个客户端插件（外观行、设置分区、重启回退）消失。组件仍在内部作为子插件运行，设置页有 Auto review / Todo 子页。
 
@@ -61,13 +62,21 @@ MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包、一个 `
 - 状态只存在 Host 内存里，一次性执行；执行前先清除，重启后的新进程不会继承，不会因为加载插件或重复 turn/end 无限重启。
 - **邮件联动**：如果已安装并配置了可发送的 `dsh-email-notify`，AI 开启动作时会复用它的 SMTP 配置发送提醒邮件；不修改邮件插件。可在「设置 → MCviseron 插件 → 会话后动作」关闭或改模板。详见 [docs/session-end.md](docs/session-end.md)。
 
+### 6. DSH 认证 cookie 清理
+
+- DSH 每次启动换随机端口，但 Chromium 的 cookie 只按 host 保存；旧的 `dsh-auth-<hash(host:port)>` 不会覆盖，30 天后会累积到 16 KB 请求头上限并触发 431。
+- 插件新增 Host 路由 `POST /api/dsh-mcviseron/auth-cookies/prune`：按当前 Host 复算当前 cookie，只过期其他 `dsh-auth-*`，保留当前登录态。
+- 每次 index 页面加载由 head 脚本自动调用，客户端入口再兜底一次；不需要限制重启，也不修改 `app.asar`，DSH 升级不会丢。
+- 不读取/记录 cookie 值；只接受 loopback 同源 POST；Host 非法或当前 cookie 算不出来时不下发过期头。
+- 如果已经累积到启动即 431，需要先一次性清理 cookie 数据库；插件在认证前无法运行。详见 [docs/auth-cookie.md](docs/auth-cookie.md)。
+
 ## 设置页
 
 设置里新增一个一级分区 **「MCviseron 插件」**（`settings.section`，id `mcviseron`），组件按需在这里拥有子页：
 
 - **重启**：重启 DeepSeek Harness（本组件的设置面）。
 - **会话后动作**：启用开关、显示等待、AI 邮件提醒、邮件主题/正文模板。
-- **组件**：列出五个组件及其配置位置。
+- **组件**：列出六个组件及其配置位置。
 
 外观组件**不在**这里——它的设置行仍留在「通用 → 外观」，位置不变。没有设置面的组件不占用子页；`autoReview` / `taskGuard` 继续通过 profile 配置，组件子页会注明这一点。
 
@@ -228,7 +237,7 @@ DSH 0.2 的官方设置 apiproxy 不向浏览器暴露第三方命名空间，�
 
 | DSH 版本 | 状态 |
 | --- | --- |
-| `0.2.1-rc.2` | ✅ 本版本验证（desktop profile；92 项测试 + 真实 Cordis 上下文） |
+| `0.2.1-rc.2` | ✅ 本版本验证（desktop profile；101 项测试 + 真实 Cordis 上下文） |
 | `0.2.0-rc.x` | ✅ peer 范围覆盖（同一套设置、审批与 hook 接缝） |
 | `0.1.x` | ❌ 不支持：0.1 的插件自行注册设置命名空间，与本插件的条目 id 命名空间模型不同 |
 
@@ -294,7 +303,7 @@ test/
 
 ```bash
 pnpm install
-pnpm check     # typecheck + 92 项测试 + 构建
+pnpm check     # typecheck + 101 项测试 + 构建
 ```
 
 构建产物：`lib/index.js`（master ESM）、`lib/appearance.js`、`lib/auto-review-fix.js`、`lib/task-guard.js`、`lib/restart.js` 与 `lib/client.js`（浏览器模块）。`lib/` 不入库。

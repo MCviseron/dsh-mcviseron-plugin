@@ -1,5 +1,10 @@
 ## [Unreleased]
 
+### Fixed
+
+- **DSH 重启认证 cookie 累积**：DSH 每次随机端口都会在 `127.0.0.1` 下留下新的 `dsh-auth-*`，Chromium 不按端口隔离，30 天后累积到 16 KB 请求头上限并触发 431。新增 `auth-cookie` 组件：Host 路由 + index head 脚本 + 客户端兜底，在每次页面加载时过期所有旧 `dsh-auth-*`，只保留当前 authority 的 cookie。不限制重启，不修改 `app.asar`，DSH 升级不会丢失。
+- 合计 **101 项测试**。
+
 ### 计划中
 
 - 将「按时间切换」扩展为多时段表（例如白天的多个浅色窗口）。

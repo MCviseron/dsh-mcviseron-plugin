@@ -2,7 +2,7 @@
 
 English | [中文](README.md)
 
-MCviseron's **master plugin for DeepSeek Harness (DSH)**: one npm package and one `mcviseron` profile entry hosting five components. DSH `client-modules` only composes a browser half for a Loader row whose name exactly equals the package name, so the master entry must be `dsh-mcviseron-plugin`; components run as sub-plugins and own settings sub-pages. The former `dsh-auto-review-restart-fix` and `dsh-task-guard` are merged here and will be deprecated.
+MCviseron's **master plugin for DeepSeek Harness (DSH)**: one npm package and one `mcviseron` profile entry hosting six components. DSH `client-modules` only composes a browser half for a Loader row whose name exactly equals the package name, so the master entry must be `dsh-mcviseron-plugin`; components run as sub-plugins and own settings sub-pages. The former `dsh-auto-review-restart-fix` and `dsh-task-guard` are merged here and will be deprecated.
 
 ## Components
 
@@ -13,6 +13,7 @@ MCviseron's **master plugin for DeepSeek Harness (DSH)**: one npm package and on
 | **Todo plan guard** | `mcviseron.taskGuard` | Advisory notices (optional hard stop) when multi-stage work stops updating its todo plan |
 | **Restart DeepSeek Harness** | `mcviseron.restart` | Button in Settings → MCviseron plugin that closes and relaunches the desktop application |
 | **After-session action** | `mcviseron.sessionEnd` | “Restart after session” dropdown in the composer; the AI tool can arm it; restart waits for running tasks |
+| **Auth-cookie cleanup** | built in | Expires old `dsh-auth-*` cookies on every page load, keeping only the current one so restarts cannot push the request header to 16 KB |
 
 > 0.6.1 returns to a **single** `mcviseron` entry: DSH `client-modules` only composes a browser half for an exact package-name Loader row, and subpath rows silently dropped the whole client plugin. Components still run as sub-plugins and expose settings sub-pages.
 
@@ -57,13 +58,21 @@ MCviseron's **master plugin for DeepSeek Harness (DSH)**: one npm package and on
 - State is in Host memory and one-shot; it is cleared before launch, so a fresh process, plugin load, or repeated turn/end cannot cause a restart loop.
 - **Email link**: if `dsh-email-notify` is installed and configured sendable, arming the action reuses its SMTP settings to send one reminder; the email plugin is not modified. Configure or disable it under Settings → MCviseron plugin → After-session action. See [docs/session-end.md](docs/session-end.md).
 
+### 6. DSH auth-cookie cleanup
+
+- DSH listens on a new loopback port on every launch, but Chromium stores cookies per host, not per port. Old `dsh-auth-<hash(host:port)>` cookies are never overwritten and eventually push the Cookie header past Node's 16 KB limit (HTTP 431).
+- A Host route `POST /api/dsh-mcviseron/auth-cookies/prune` recomputes the current cookie for the request Host, expires every other `dsh-auth-*`, and keeps the current login cookie.
+- A head script calls it on every index load, with one client-entry fallback. It does not limit restarts, does not modify `app.asar`, and survives DSH upgrades.
+- It never reads or logs cookie values; only loopback same-origin POSTs are accepted, and it sends no expiration headers when the Host or current cookie cannot be resolved.
+- If startup already fails with 431, clean the cookie database once; plugins cannot run before authentication. See [docs/auth-cookie.md](docs/auth-cookie.md).
+
 ## Settings page
 
 Settings gains a first-level **MCviseron plugin** section (`settings.section`, id `mcviseron`). Components own a tab there when they have a settings surface:
 
 - **Restart**: restart DeepSeek Harness (this component's settings).
 - **After-session action**: enable switch, render grace, AI email reminder, subject/body templates.
-- **Components**: list the five components and their configuration surfaces.
+- **Components**: list the six components and their configuration surfaces.
 
 The Appearance component is intentionally **not** here — its row stays under General → Appearance. Auto review and Todo guard have editable sub-pages; the Components tab is an overview.
 
@@ -134,7 +143,7 @@ Defaults: appearance off / `08:00–23:00`; auto-review both guards on, 6 s, 400
 
 | DSH version | Status |
 | --- | --- |
-| `0.2.1-rc.2` | ✅ verified (desktop profile; 92 tests + real Cordis contexts) |
+| `0.2.1-rc.2` | ✅ verified (desktop profile; 101 tests + real Cordis contexts) |
 | `0.2.0-rc.x` | ✅ covered by the peer range |
 | `0.1.x` | ❌ unsupported (different settings-namespace model) |
 

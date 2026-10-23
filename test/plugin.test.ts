@@ -61,6 +61,7 @@ test('the master entry installs all components into one context', async () => {
   try {
     // Appearance: the loopback bridge is registered on the Host web server.
     assert.deepEqual(h.routes.map(route => route.path).sort(), [
+      '/api/dsh-mcviseron/auth-cookies/prune',
       '/api/dsh-mcviseron/diagnostics',
       '/api/dsh-mcviseron/restart/execute',
       '/api/dsh-mcviseron/restart/status',
@@ -107,7 +108,7 @@ test('the master entry also loads with no config at all', async () => {
   try {
     await settle()
     assert.equal(h.root.fiber.state, 2)
-    assert.equal(h.routes.length, 7)
+    assert.equal(h.routes.length, 8)
   } finally {
     await (fiber as any).dispose()
   }
