@@ -2,7 +2,7 @@
 
 ## 当前状态（2026-10-23）
 
-- 包名 **`dsh-mcviseron-plugin` 当前发布 0.6.5**；v0.6.3 的 host bundle 导入缺陷由 v0.6.4 修复，v0.6.5 修复会话后动作工具注册与 turn/end 监听。
+- 包名 **`dsh-mcviseron-plugin` 当前发布 0.6.6**；v0.6.3 的 host bundle 导入缺陷由 v0.6.4 修复，v0.6.5 修复会话后动作工具注册与 turn/end 监听。
 - npm 账号 `mcviseron` 已恢复正常，可执行首次手动发布。
 - 本机全局 registry 指向 npmmirror，发布时必须显式指定 `--registry=https://registry.npmjs.org/`。
 - 首次发布 **v0.6.1 已手动完成**；从 **v0.6.2** 起由 `.github/workflows/publish.yml` 通过 OIDC Trusted Publishing 发布，tag 推送即发布。
@@ -49,7 +49,7 @@
 
    ```powershell
    npm view dsh-mcviseron-plugin version dist-tags.latest --registry=https://registry.npmjs.org/
-   curl.exe -sI https://registry.npmjs.org/dsh-mcviseron-plugin/-/dsh-mcviseron-plugin-0.6.5.tgz | Select-Object -First 1
+   curl.exe -sI https://registry.npmjs.org/dsh-mcviseron-plugin/-/dsh-mcviseron-plugin-0.6.6.tgz | Select-Object -First 1
    curl.exe -X PUT "https://registry.npmmirror.com/-/package/dsh-mcviseron-plugin/syncs"
    ```
 
@@ -77,7 +77,7 @@ Trusted Publisher 绑定后，**推送 `v*` tag 即直接发布**，不再需要
 
 > `workflow_dispatch` 默认只做 `npm pack --dry-run`；要发布当前 `main` 的版本，取消勾选 `dry-run` 再运行。
 >
-> 从 v0.6.3 起 tag 推送直接发布；v0.6.4 覆盖 v0.6.3 的启动导入缺陷；v0.6.5 修复会话后动作。
+> 从 v0.6.3 起 tag 推送直接发布；v0.6.4 覆盖 v0.6.3 的启动导入缺陷；v0.6.5 修复会话后动作；v0.6.6 加入 Auto review 上下文裁剪、认证 cookie 清理和全局 AI 提示。
 
 ## 回滚与故障
 

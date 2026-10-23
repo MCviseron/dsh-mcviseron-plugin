@@ -1,23 +1,27 @@
 ## [Unreleased]
 
-### Added
-
-- **AI 会话后动作全局提示**：右上角固定提示「xx 会话已启用 AI 会话自动重启/关闭」，多会话多张可关闭卡片；只显示 AI 设置的动作，动作执行/清除后消失。
-
-### Fixed
-
-- **多会话会话后动作重复执行**：多个会话同时设置 restart/close 时，旧实现会各自排队并发起多个重启任务。现在进程级 `dispatching` 锁只允许第一个进入执行阶段的动作，取消其它会话的计时器和状态。
-- **Auto review 长会话无法审批**：DSH reviewer 会把整个 `FILTERED_HISTORY` 送进模型，长会话触发 `CONTEXT_WINDOW_EXCEEDED`。`auto-review-fix` 现在只包装 Auto review 的 `llm.stream` 请求：保留 PENDING_ACTION、工程约束和全部人类指令，旧工具调用折叠，图片/超长参数裁剪，历史上限默认 120k 字符；普通对话和翻译请求不受影响。
-
-- **DSH 重启认证 cookie 累积**：DSH 每次随机端口都会在 `127.0.0.1` 下留下新的 `dsh-auth-*`，Chromium 不按端口隔离，30 天后累积到 16 KB 请求头上限并触发 431。新增 `auth-cookie` 组件：Host 路由 + index head 脚本 + 客户端兜底，在每次页面加载时过期所有旧 `dsh-auth-*`，只保留当前 authority 的 cookie。不限制重启，不修改 `app.asar`，DSH 升级不会丢失。
-- 合计 **101 项测试**。
-
 ### 计划中
 
 - 将「按时间切换」扩展为多时段表（例如白天的多个浅色窗口）。
 - 设置行支持「立即测试」预览按钮。
 - Restart 组件支持 macOS/Linux（当前仅 Windows 桌面版）。
 - 把定时巡检任务 prompt 更新为当前单条目架构。
+
+## [0.6.6] - 2026-10-23
+
+### Added
+
+- **AI 会话后动作全局提示**：右上角固定提示「xx 会话已启用 AI 会话自动重启/关闭」，多会话多张可关闭卡片；只显示 AI 设置的动作，动作执行/清除后消失。提示位于导航栏下方并保留间距，新动作通过 `armedAt` 重新显示。
+
+### Fixed
+
+- **多会话会话后动作重复执行**：多个会话同时设置 restart/close 时，旧实现会各自排队并发起多个重启任务。现在进程级 `dispatching` 锁只允许第一个进入执行阶段的动作，取消其它会话的计时器和状态。
+- **Auto review 长会话无法审批**：DSH reviewer 会把整个 `FILTERED_HISTORY` 送进模型，长会话触发 `CONTEXT_WINDOW_EXCEEDED`。`auto-review-fix` 现在只包装 Auto review 的 `llm.stream` 请求：保留 PENDING_ACTION、工程约束和全部人类指令，旧工具调用折叠，图片/超长参数裁剪，历史上限默认 120k 字符；普通对话和翻译请求不受影响。
+- **DSH 重启认证 cookie 累积**：DSH 每次随机端口都会在 `127.0.0.1` 下留下新的 `dsh-auth-*`，Chromium 不按端口隔离，30 天后累积到 16 KB 请求头上限并触发 431。新增 `auth-cookie` 组件：Host 路由 + index head 脚本 + 客户端兜底，在每次页面加载时过期所有旧 `dsh-auth-*`，只保留当前 authority 的 cookie。不限制重启，不修改 `app.asar`，DSH 升级不会丢失。
+
+### Tests
+
+- 合计 **112 项测试**。
 
 ## [0.6.5] - 2026-10-23
 
