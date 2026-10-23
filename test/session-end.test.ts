@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   createSessionEndController,
   inspectRunningTasks,
+  makeSessionEndRoutes,
   type SessionEndDeps,
 } from '../src/session-end/index.ts'
 import { Context } from '@deepseek-ai/cordis'
@@ -214,4 +215,47 @@ test('the agent tool is registered and can arm restart/close but not shutdown', 
   } finally {
     await (fiber as any).dispose()
   }
+})
+
+test('only one process action is dispatched across sessions', async () => {
+  const { controller, calls } = fixture()
+  controller.set('a', 'restart', 'ai', 'Alpha')
+  controller.set('b', 'restart', 'ai', 'Beta')
+  controller.onTurnEnd('a')
+  controller.onTurnEnd('b')
+  await sleep(60)
+  assert.deepEqual(calls, ['restart'])
+  assert.deepEqual(controller.list(), [])
+})
+
+test('global state lists AI-armed actions with their labels', async () => {
+  const { controller } = fixture()
+  controller.set('a', 'restart', 'ai', 'Alpha')
+  controller.set('b', 'close', 'user', 'Beta')
+  const list = controller.list()
+  assert.equal(list.length, 2)
+  assert.deepEqual(list.find(item => item.sessionId === 'a') && {
+    label: list.find(item => item.sessionId === 'a')!.label,
+    mode: list.find(item => item.sessionId === 'a')!.mode,
+    requestedBy: list.find(item => item.sessionId === 'a')!.requestedBy,
+  }, { label: 'Alpha', mode: 'restart', requestedBy: 'ai' })
+
+  const route = makeSessionEndRoutes(controller).find(item => item.path.endsWith('/global'))
+  assert.ok(route)
+  let status = 0
+  let body = ''
+  const req = {
+    method: 'POST',
+    headers: { host: '127.0.0.1:65001' },
+    socket: { remoteAddress: '127.0.0.1' },
+  } as any
+  const res = {
+    writeHead(value: number) { status = value; return res },
+    end(value: string) { body = value; return res },
+  } as any
+  await route.handler(req, res)
+  assert.equal(status, 200)
+  const parsed = JSON.parse(body) as { ok: boolean; actions: Array<{ sessionId: string }> }
+  assert.equal(parsed.ok, true)
+  assert.deepEqual(parsed.actions.map(item => item.sessionId), ['a'])
 })

@@ -7,6 +7,7 @@ import { AUTH_COOKIE_API } from '../api.ts'
 import { AppearanceScheduleRow } from './AppearanceScheduleRow.tsx'
 import { FallbackRestartRow } from './FallbackRestartRow.tsx'
 import { SessionEndControl } from './SessionEndControl.tsx'
+import { startSessionEndGlobalNotice } from './SessionEndGlobalNotice.ts'
 import { SettingsSection } from './SettingsSection.tsx'
 import { ScheduleDriver, type ThemeFace } from './driver.ts'
 import { en, zh, type McviseronKey } from './locales.ts'
@@ -112,6 +113,12 @@ export function apply(ctx: ClientContext): void {
     ctx.effect(() => driver.start(), 'mcviseron: appearance schedule driver')
   } catch (error) {
     console.error('[mcviseron] cannot start the appearance driver', error)
+  }
+
+  try {
+    ctx.effect(() => startSessionEndGlobalNotice(), 'mcviseron: global session-end notice')
+  } catch (error) {
+    console.error('[mcviseron] cannot start the global session-end notice', error)
   }
 
   // The theme registers Appearance at order 10 and Font settings at 11; 10.5

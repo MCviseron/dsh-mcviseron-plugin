@@ -13,7 +13,8 @@
 
 - 状态只保存在 Host 内存，DSH 每次启动都是关闭；不写 profile、不写 localStorage。
 - 动作是**一次性**的：执行前先清除状态，再调用重启/关闭/关机；不会因为加载插件或重复 `turn/end` 反复重启。
-- 新 turn 开始时，如果上一个 turn 结束后的等待计时器还在，会取消并清除动作；用户在等待期间发消息就不会被意外重启。
+- 新 turn 开始时，如果上一个 turn 结束后的等待计时器还在，只取消本次计时并保留动作；该 turn 结束后重新排队，避免用户追问时把重启静默吞掉。
+- **全局只执行一次**：多个会话同时设置动作时，第一个真正进入执行阶段（非等待状态）的动作会设置进程级 `dispatching` 锁，取消其它会话的计时器并清空它们的状态；后续动作直接跳过。两个会话都设 restart 只会产生一次重启。
 - 「设置 → MCviseron 插件 → 重启」是另一个组件，仍然**立即**执行，不受任务等待约束。
 
 ## 任务探寻
@@ -35,6 +36,7 @@
 
 - AI 只能设置 `restart` / `close` / `off`；`shutdown` 被拒绝。
 - 工具返回后，输入框通过 1.5 秒轮询拿到 `requestedBy: "ai"`，显示醒目但非弹窗的提示。
+- 同时有一个**全局右上角提示**（不属于当前会话）轮询 `/session-end/global`，显示「xx 会话已启用 AI 会话自动重启/关闭」；多会话会列出多张卡片，可逐张关闭，动作执行/清除后自动消失。
 - 工具设置后到 `turn/end` 才排入执行队列；如果 AI 在最终回复前设置，本轮结束后触发。
 
 ## 邮件联动（可选）
@@ -88,6 +90,7 @@ sessionEnd:
 | --- | --- | --- |
 | POST | `/api/dsh-mcviseron/session-end/state` | 查询当前 session 状态（1.5 秒轮询） |
 | POST | `/api/dsh-mcviseron/session-end/set` | 用户下拉设置；只允许 loopback |
+| GET/POST | `/api/dsh-mcviseron/session-end/global` | 所有 AI 设置的动作（含 label/waiting），供右上角全局提示轮询 |
 
 ## 限制
 

@@ -53,10 +53,12 @@ MCviseron's **master plugin for DeepSeek Harness (DSH)**: one npm package and on
 ### 5. After-session action
 
 - A **“Restart after session”** dropdown left of the composer: No action / Restart DSH / Close DSH / Shut down PC. It starts with No action on every DSH launch.
-- Runs once after the final reply has fully rendered (3 s grace by default); sending a new message during the grace cancels it.
+- Runs once after the final reply has fully rendered (3 s grace by default); sending a new message during the grace keeps the action and reschedules it to the end of that turn.
 - The AI can arm **restart** or **close DSH** through `set_session_end_action` (never shutdown). The composer shows a colored, non-modal reminder; shutdown is user-only.
 - **Restart performs a task probe**: it waits while any agent turn (including one waiting for approval/answer) or background job is running, then restarts. Close/shutdown do not wait. **The Settings restart button is not affected** and still runs immediately.
 - State is in Host memory and one-shot; it is cleared before launch, so a fresh process, plugin load, or repeated turn/end cannot cause a restart loop.
+- **Global arbitration**: the first action that reaches execution sets a process-wide dispatching lock, clears every other session's timer/action, and is the only process action dispatched; two sessions arming restart produce one restart.
+- **Global AI notice**: besides the composer reminder, a fixed top-right notice shows "session X enabled AI session auto-restart/close"; multiple sessions render multiple dismissible cards, which disappear when the action runs or is cleared. User-set actions do not show this AI notice.
 - **Email link**: if `dsh-email-notify` is installed and configured sendable, arming the action reuses its SMTP settings to send one reminder; the email plugin is not modified. Configure or disable it under Settings → MCviseron plugin → After-session action. See [docs/session-end.md](docs/session-end.md).
 
 ### 6. DSH auth-cookie cleanup
@@ -144,7 +146,7 @@ Defaults: appearance off / `08:00–23:00`; auto-review both guards on, 6 s, 400
 
 | DSH version | Status |
 | --- | --- |
-| `0.2.1-rc.2` | ✅ verified (desktop profile; 108 tests + real Cordis contexts) |
+| `0.2.1-rc.2` | ✅ verified (desktop profile; 112 tests + real Cordis contexts) |
 | `0.2.0-rc.x` | ✅ covered by the peer range |
 | `0.1.x` | ❌ unsupported (different settings-namespace model) |
 

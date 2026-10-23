@@ -90,9 +90,15 @@ export interface SessionEndDeps {
   log?: (message: string) => void
 }
 
+export interface SessionEndGlobalAction extends SessionEndView {
+  sessionId: string
+  label: string
+}
+
 export interface SessionEndController {
   get(sessionId: string): SessionEndView
-  set(sessionId: string, mode: SessionEndMode, requestedBy: 'user' | 'ai'): SessionEndView
+  list(): SessionEndGlobalAction[]
+  set(sessionId: string, mode: SessionEndMode, requestedBy: 'user' | 'ai', label?: string): SessionEndView
   onTurnStart(sessionId: string): void
   onTurnEnd(sessionId: string): void
   dispose(): void
@@ -101,6 +107,7 @@ export interface SessionEndController {
 interface Entry {
   mode: Exclude<SessionEndMode, 'off'>
   requestedBy: 'user' | 'ai'
+  label?: string
   waiting: boolean
   runningAgents: number
   runningJobs: number
@@ -203,6 +210,7 @@ export function createSessionEndController(deps: SessionEndDeps = {}): SessionEn
   const log = deps.log ?? defaultLog
   const entries = new Map<string, Entry>()
   const timers = new Map<string, ReturnType<typeof setTimeout>>()
+  let dispatching = false
   const resolveTarget = deps.resolveTarget ?? (() => resolveRestartTarget(
     process.execPath,
     process.ppid,
@@ -258,7 +266,18 @@ export function createSessionEndController(deps: SessionEndDeps = {}): SessionEn
 
   const fire = (sessionId: string, entry: Entry): void => {
     cancel(sessionId)
-    entries.delete(sessionId)
+    if (dispatching) {
+      entries.delete(sessionId)
+      return
+    }
+    // One process action wins. A second session must not schedule another
+    // restart/close task while the first is already leaving the process.
+    dispatching = true
+    for (const [id, timer] of timers) {
+      clearTimeout(timer)
+      timers.delete(id)
+    }
+    entries.clear()
     const mode = entry.mode
     try {
       if (mode === 'restart') {
@@ -309,7 +328,14 @@ export function createSessionEndController(deps: SessionEndDeps = {}): SessionEn
     get(sessionId) {
       return view(sessionId)
     },
-    set(sessionId, mode, requestedBy) {
+    list() {
+      return [...entries.entries()].map(([sessionId, entry]) => ({
+        sessionId,
+        label: entry.label ?? '',
+        ...view(sessionId),
+      }))
+    },
+    set(sessionId, mode, requestedBy, label) {
       if (sessionId === '') throw new TypeError('sessionId must be non-empty')
       if (!enabled) throw new Error('session-end actions are disabled')
       if (!isSessionEndMode(mode)) throw new TypeError('unknown session-end mode: ' + String(mode))
@@ -324,6 +350,7 @@ export function createSessionEndController(deps: SessionEndDeps = {}): SessionEn
       entries.set(sessionId, {
         mode,
         requestedBy,
+        ...(label === undefined || label === '' ? {} : { label }),
         waiting: false,
         runningAgents: 0,
         runningJobs: 0,
@@ -351,6 +378,7 @@ export function createSessionEndController(deps: SessionEndDeps = {}): SessionEn
       for (const timer of timers.values()) clearTimeout(timer)
       timers.clear()
       entries.clear()
+      dispatching = false
     },
   }
 }
@@ -424,7 +452,26 @@ export function makeSessionEndRoutes(controller: SessionEndController): WebRoute
     },
   }
 
-  return [state, set]
+  const global: WebRoute = {
+    kind: 'exact',
+    path: SESSION_END_API.global,
+    handler: (req, res): void => {
+      if (req.method !== 'POST' && req.method !== 'GET') {
+        json(res, 405, { ok: false, error: 'method-not-allowed' })
+        return
+      }
+      if (!isLoopbackRequest(req)) {
+        json(res, 403, { ok: false, error: 'forbidden' })
+        return
+      }
+      json(res, 200, {
+        ok: true,
+        actions: controller.list().filter(action => action.requestedBy === 'ai' && action.mode !== 'off'),
+      })
+    },
+  }
+
+  return [state, set, global]
 }
 
 function serviceOf(ctx: Context, name: string): unknown {
@@ -531,16 +578,17 @@ function installAgentTool(ctx: Context, controller: SessionEndController, option
           if (action === 'close' && !before.available.close) {
             throw new Error('close is unavailable in this host')
           }
-          controller.set(sessionId, action, 'ai')
+          const session = exec.agent?.session as { header?: { title?: unknown; name?: unknown }; title?: unknown } | undefined
+          const title = session?.header?.title ?? session?.header?.name ?? session?.title
+          const label = typeof title === 'string' && title !== '' ? title : ''
+          controller.set(sessionId, action, 'ai', label)
           if (action !== 'off' && options.notifyEmailOnAi) {
             const key = sessionId + ':' + action
             const now = Date.now()
             const previous = emailed.get(key) ?? 0
             if (now - previous > 60_000) {
               emailed.set(key, now)
-              const session = exec.agent?.session as { header?: { title?: unknown; name?: unknown }; title?: unknown } | undefined
-              const title = session?.header?.title ?? session?.header?.name ?? session?.title
-              const sessionName = typeof title === 'string' && title !== '' ? title : sessionId
+              const sessionName = label === '' ? sessionId : label
               void sendSessionEndEmail({
                 settings: serviceOf(ctx, 'settings'),
                 template: options,

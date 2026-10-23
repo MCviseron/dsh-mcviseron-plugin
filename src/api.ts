@@ -8,6 +8,7 @@ export const MCVISERON_API = {
 export const SESSION_END_API = {
   state: '/api/dsh-mcviseron/session-end/state',
   set: '/api/dsh-mcviseron/session-end/set',
+  global: '/api/dsh-mcviseron/session-end/global',
 } as const
 
 /** Auth-cookie hygiene shared by the index script and the client fallback. */
