@@ -9,6 +9,7 @@ import {
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { SESSION_END_API } from '../api.ts'
+import { startSessionEndGlobalNotice } from './SessionEndGlobalNotice.ts'
 import type { McviseronKey } from './locales.ts'
 
 type Mode = 'off' | 'restart' | 'close' | 'shutdown'
@@ -151,6 +152,8 @@ export function SessionEndControl(props: SessionEndControlProps) {
       clearInterval(timer)
     }
   }, [sessionId])
+
+  useEffect(() => startSessionEndGlobalNotice(), [])
 
   if (sessionId === undefined || sessionId === '') return null
 
