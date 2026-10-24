@@ -538,15 +538,19 @@ function installAgentTool(ctx: Context, controller: SessionEndController, option
           'Use close only when the user explicitly asks to close DSH. Shutdown is user-only. If unsure whether a restart is required, ask the user instead of arming.',
         ].join(' '),
         parameters: {
-          action: {
-            type: 'string',
-            required: true,
-            enum: ['restart', 'close', 'off'],
-            description: 'restart DSH after this turn, close DSH, or clear the pending action',
-          },
-          reason: {
-            type: 'string',
-            description: 'Optional short reason shown in the tool result; the user sees the same action in the composer',
+          type: 'object',
+          additionalProperties: false,
+          required: ['action'],
+          properties: {
+            action: {
+              type: 'string',
+              enum: ['restart', 'close', 'off'],
+              description: 'restart DSH after this turn, close DSH, or clear the pending action',
+            },
+            reason: {
+              type: 'string',
+              description: 'Optional short reason shown in the tool result; the user sees the same action in the composer',
+            },
           },
         },
         output: {
