@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+### Compatibility
+
+- **预适配 DSH `0.2.1-rc.3`（nightly next）**：开发依赖与类型升级到 rc.3，peer 范围同时保留 `0.2.0-rc.2` / `0.2.1-rc.2` / `0.2.1-rc.3`；补充 `dsh-scope` / `dsh-brand` / `dsh-session` / `dsh-app-boot` / `dsh-config-editor` rc.3 依赖。112 项测试、typecheck、build 全绿。当前桌面仍为 rc.2，rc.3 待升级后做真实运行时验证。
+
 ### 计划中
 
 - 将「按时间切换」扩展为多时段表（例如白天的多个浅色窗口）。
