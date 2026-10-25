@@ -1,15 +1,26 @@
 ## [Unreleased]
 
-### Compatibility
-
-- **预适配 DSH `0.2.1-rc.3`（nightly next）**：开发依赖与类型升级到 rc.3，peer 范围同时保留 `0.2.0-rc.2` / `0.2.1-rc.2` / `0.2.1-rc.3`；补充 `dsh-scope` / `dsh-brand` / `dsh-session` / `dsh-app-boot` / `dsh-config-editor` rc.3 依赖。112 项测试、typecheck、build 全绿。当前桌面仍为 rc.2，rc.3 待升级后做真实运行时验证。
-
 ### 计划中
 
 - 将「按时间切换」扩展为多时段表（例如白天的多个浅色窗口）。
 - 设置行支持「立即测试」预览按钮。
 - Restart 组件支持 macOS/Linux（当前仅 Windows 桌面版）。
 - 把定时巡检任务 prompt 更新为当前单条目架构。
+
+## [0.6.8] - 2026-10-25
+
+### Compatibility
+
+- **预适配 DSH `0.2.1-rc.3`（nightly next）**：开发依赖与类型升级到 rc.3，peer 范围同时保留 `0.2.0-rc.2` / `0.2.1-rc.2` / `0.2.1-rc.3`；补充 `dsh-scope` / `dsh-brand` / `dsh-session` / `dsh-app-boot` / `dsh-config-editor` rc.3 依赖。当前桌面仍为 rc.2，rc.3 待升级后做真实运行时验证。
+
+### Fixed
+
+- **`set_session_end_action` 导致自动化会话运行失败**：该工具通过原始 `tools.register` 注册，`parameters` 仍是内部字段表，没有顶层 `type: "object"`；严格模型 Provider 收到 `type: null` 后拒绝整个请求。改为标准 object JSON Schema，并补测试固定 `type/required/properties`。
+- **DSH 启动认证 cookie 累积（431）**：插件运行时 prune 无法访问 Electron defaultSession 的认证 cookie（日志恒为 `pruned=0`）。新增启动清理器：Start Menu 快捷方式指向 `wscript.exe`，启动前只删除 `127.0.0.1` 的旧 `dsh-auth-*` 并备份，再启动 DSH；不改 `app.asar`，更新不丢。安装脚本与说明见 `scripts/install-dsh-cookie-launcher.ps1` / `docs/dsh-cookie-launcher.md`。
+
+### Tests
+
+- 合计 **112 项测试**。
 
 ## [0.6.6] - 2026-10-23
 
