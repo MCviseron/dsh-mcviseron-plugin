@@ -1,5 +1,13 @@
 ## [Unreleased]
 
+### Tests
+
+- 合计 **119 项测试**。
+
+### Added
+
+- **会话内编辑官方自动化任务**：官方 `schedule_*` 工具依赖 preset，当前会话经常没有。新增 `automation_task_list/create/update/delete`，直接调用 Host `ctx.schedule`，按当前会话 id 列/建/改/删任务并自动存盘；配套 system prompt 指引，不再手改 `schedule.json`。
+
 ### 计划中
 
 - 将「按时间切换」扩展为多时段表（例如白天的多个浅色窗口）。

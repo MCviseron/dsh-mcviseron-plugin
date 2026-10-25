@@ -1,7 +1,7 @@
 {
   "name": "dsh-mcviseron-plugin",
-  "version": "0.6.8",
-  "description": "DeepSeek Harness (DSH) master plugin — one package hosting MCviseron's DSH components as separate bundle entries: a time-based light/dark Appearance schedule, an Auto-review fix (shutdown preset guard + Chinese approval-reason translation), and a todo plan guard that keeps multi-stage work advancing, one-shot after-session restart/close actions with task-aware waiting, and automatic auth-cookie hygiene for repeated desktop restarts.",
+  "version": "0.7.0",
+  "description": "DeepSeek Harness (DSH) master plugin — one package hosting MCviseron's DSH components as separate bundle entries: a time-based light/dark Appearance schedule, an Auto-review fix (shutdown preset guard + Chinese approval-reason translation), and a todo plan guard that keeps multi-stage work advancing, one-shot after-session restart/close actions with task-aware waiting, and automatic auth-cookie hygiene for repeated desktop restarts, and model-editable official automation tasks.",
   "license": "Apache-2.0",
   "author": {
     "name": "MCviseron",
@@ -78,7 +78,7 @@
   "scripts": {
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types test/schedule.test.ts && node --experimental-strip-types test/routes.test.ts && node --experimental-strip-types test/config.test.ts && node --experimental-strip-types test/auto-review-fix.test.ts && node --experimental-strip-types test/auto-review-fix-cordis.test.ts && node --experimental-strip-types test/review-context.test.ts && node --experimental-strip-types test/global-notice.test.ts && node --experimental-strip-types test/task-guard.test.ts && node --experimental-strip-types test/task-guard-cordis.test.ts && node --experimental-strip-types test/session-end.test.ts && node --experimental-strip-types test/auth-cookie.test.ts && node --experimental-strip-types test/restart.test.ts && node --experimental-strip-types test/plugin.test.ts",
+    "test": "node --experimental-strip-types test/schedule.test.ts && node --experimental-strip-types test/routes.test.ts && node --experimental-strip-types test/config.test.ts && node --experimental-strip-types test/auto-review-fix.test.ts && node --experimental-strip-types test/auto-review-fix-cordis.test.ts && node --experimental-strip-types test/review-context.test.ts && node --experimental-strip-types test/global-notice.test.ts && node --experimental-strip-types test/task-guard.test.ts && node --experimental-strip-types test/task-guard-cordis.test.ts && node --experimental-strip-types test/session-end.test.ts && node --experimental-strip-types test/auth-cookie.test.ts && node --experimental-strip-types test/automation-tasks.test.ts && node --experimental-strip-types test/restart.test.ts && node --experimental-strip-types test/plugin.test.ts",
     "check": "pnpm typecheck && pnpm test && pnpm build",
     "prepare": "pnpm build",
     "prepublishOnly": "pnpm check",

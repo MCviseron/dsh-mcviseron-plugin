@@ -2,7 +2,7 @@
 
 [English](README.en.md) | 中文
 
-MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包、一个 `mcviseron` profile 条目挂载六个组件。DSH 的 `client-modules` 只给 Loader 行名称精确等于包名的条目组合浏览器半区，因此 master 条目名必须是 `dsh-mcviseron-plugin`；组件作为子插件运行，设置页提供各自子页。原 `dsh-auto-review-restart-fix` 与 `dsh-task-guard` 已并入本插件并逐步废弃。
+MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包、一个 `mcviseron` profile 条目挂载七个组件。DSH 的 `client-modules` 只给 Loader 行名称精确等于包名的条目组合浏览器半区，因此 master 条目名必须是 `dsh-mcviseron-plugin`；组件作为子插件运行，设置页提供各自子页。原 `dsh-auto-review-restart-fix` 与 `dsh-task-guard` 已并入本插件并逐步废弃。
 
 ## 组件
 
@@ -14,6 +14,7 @@ MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包、一个 `
 | **重启 DeepSeek Harness** | `mcviseron.restart` | 「设置 → MCviseron 插件」里的重启按钮：关闭并重新启动桌面应用 |
 | **会话后动作** | `mcviseron.sessionEnd` | 输入框左侧「会话后重启」下拉；AI 工具可设置；重启等待任务结束 |
 | **认证 cookie 清理** | 内置 | 每次页面加载过期旧 `dsh-auth-*`，只保留当前，避免重启把请求头推到 16KB |
+| **自动化任务编辑** | 内置工具 | `automation_task_list/create/update/delete` 直接调用 Host schedule 并自动存盘 |
 
 > 0.6.1 起回到**单一** `mcviseron` 条目：DSH `client-modules` 只给精确包名条目组合浏览器半区，子路径条目会让整个客户端插件（外观行、设置分区、重启回退）消失。组件仍在内部作为子插件运行，设置页有 Auto review / Todo 子页。
 
@@ -65,7 +66,13 @@ MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包、一个 `
 - **AI 全局提示**：除当前输入框的强提示外，右上角固定显示「xx 会话已启用 AI 会话自动重启/关闭」；多会话多张卡片，可关闭，动作执行/取消后消失。用户手动设置不显示此全局 AI 提示。
 - **邮件联动**：如果已安装并配置了可发送的 `dsh-email-notify`，AI 开启动作时会复用它的 SMTP 配置发送提醒邮件；不修改邮件插件。可在「设置 → MCviseron 插件 → 会话后动作」关闭或改模板。详见 [docs/session-end.md](docs/session-end.md)。
 
-### 6. DSH 认证 cookie 清理
+### 6. 自动化任务编辑
+
+- 官方 `schedule_*` 工具依赖 preset 注册，当前会话经常没有；新增 `automation_task_*`，通过 `ctx.schedule` 直接列/建/改/删当前会话任务。
+- 修改直接由 Host Schedule 服务自动存盘，不需要编辑 `schedule.json`，不需要重启。
+- 模型在会话里直接改 prompt/title/频率；详见 [docs/automation-tasks.md](docs/automation-tasks.md)。
+
+### 7. DSH 认证 cookie 清理
 
 - DSH 每次启动换随机端口，但 Chromium 的 cookie 只按 host 保存；旧的 `dsh-auth-<hash(host:port)>` 不会覆盖，30 天后会累积到 16 KB 请求头上限并触发 431。
 - 插件新增 Host 路由 `POST /api/dsh-mcviseron/auth-cookies/prune`：按当前 Host 复算当前 cookie，只过期其他 `dsh-auth-*`，保留当前登录态。
@@ -240,8 +247,8 @@ DSH 0.2 的官方设置 apiproxy 不向浏览器暴露第三方命名空间，�
 
 | DSH 版本 | 状态 |
 | --- | --- |
-| `0.2.1-rc.3` | ✅ 预适配（rc.3 类型/依赖 + 112 项测试；桌面 nightly 待升级运行时验证） |
-| `0.2.1-rc.2` | ✅ 当前桌面运行版本（112 项测试 + 真实 Cordis 上下文） |
+| `0.2.1-rc.3` | ✅ 预适配（rc.3 类型/依赖 + 119 项测试；桌面 nightly 待升级运行时验证） |
+| `0.2.1-rc.2` | ✅ 当前桌面运行版本（119 项测试 + 真实 Cordis 上下文） |
 | `0.2.0-rc.x` | ✅ peer 范围覆盖（同一套设置、审批与 hook 接缝） |
 | `0.1.x` | ❌ 不支持：0.1 的插件自行注册设置命名空间，与本插件的条目 id 命名空间模型不同 |
 
@@ -307,7 +314,7 @@ test/
 
 ```bash
 pnpm install
-pnpm check     # typecheck + 112 项测试 + 构建
+pnpm check     # typecheck + 119 项测试 + 构建
 ```
 
 构建产物：`lib/index.js`（master ESM）、`lib/appearance.js`、`lib/auto-review-fix.js`、`lib/task-guard.js`、`lib/restart.js` 与 `lib/client.js`（浏览器模块）。`lib/` 不入库。
