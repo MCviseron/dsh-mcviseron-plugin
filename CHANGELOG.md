@@ -1,19 +1,24 @@
 ## [Unreleased]
 
-### Tests
-
-- 合计 **119 项测试**。
-
-### Added
-
-- **会话内编辑官方自动化任务**：官方 `schedule_*` 工具依赖 preset，当前会话经常没有。新增 `automation_task_list/create/update/delete`，直接调用 Host `ctx.schedule`，按当前会话 id 列/建/改/删任务并自动存盘；配套 system prompt 指引，不再手改 `schedule.json`。
-
 ### 计划中
 
 - 将「按时间切换」扩展为多时段表（例如白天的多个浅色窗口）。
 - 设置行支持「立即测试」预览按钮。
 - Restart 组件支持 macOS/Linux（当前仅 Windows 桌面版）。
-- 把定时巡检任务 prompt 更新为当前单条目架构。
+
+## [0.7.1] - 2026-11-01
+
+### Compatibility
+
+- **预适配 DSH `0.2.1-rc.5`（nightly next）**：开发依赖与类型升级到 rc.5（含 `dsh-home-paths` / `dsh-launch-environment`），peer 范围保留 `0.2.0-rc.2` / `0.2.1-rc.2` / `0.2.1-rc.3` / `0.2.1-rc.5`。当前桌面仍为 rc.2，rc.5 待升级后做真实运行时验证。
+
+### Added
+
+- **会话内编辑官方自动化任务**：官方 `schedule_*` 工具依赖 preset，当前会话经常没有。新增 `automation_task_list/create/update/delete`，直接调用 Host `ctx.schedule`，按当前会话 id 列/建/改/删任务并自动存盘；配套 system prompt 指引，不再手改 `schedule.json`。
+
+### Tests
+
+- 合计 **119 项测试**。
 
 ## [0.6.8] - 2026-10-25
 
