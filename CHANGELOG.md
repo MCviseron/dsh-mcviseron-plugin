@@ -6,6 +6,16 @@
 - 设置行支持「立即测试」预览按钮。
 - Restart 组件支持 macOS/Linux（当前仅 Windows 桌面版）。
 
+## [0.7.2] - 2026-11-08
+
+### Compatibility
+
+- **预适配 DSH `0.2.2-rc.1`（nightly next）**：开发依赖升级到 0.2.2-rc.1；同步 `cordis@4.1.0`、`schemastery@3.19.0`、`cordis-plugin-group/loader/include@1.1.0`，补齐 `dsh-home-paths` / `dsh-launch-environment`。peer 范围加入 `^0.2.2-rc.1`。当前桌面仍为 `0.2.1-rc.5`，0.2.2-rc.1 待升级后做真实运行时验证。
+
+### Tests
+
+- 合计 **119 项测试**；typecheck、build 全绿。
+
 ## [0.7.1] - 2026-11-01
 
 ### Compatibility
