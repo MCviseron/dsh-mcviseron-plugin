@@ -1,6 +1,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import * as appearance from './appearance/index.ts'
+import * as archiveIntegration from './archive-integration/index.ts'
 import * as authCookie from './auth-cookie/index.ts'
 import * as automationTasks from './automation-tasks/index.ts'
 import * as autoReviewFix from './auto-review-fix/index.ts'
@@ -68,6 +69,7 @@ function mount(ctx: Context, component: unknown, config: unknown): void {
 export function apply(ctx: Context, rawConfig?: MasterConfig): void {
   const config = (toPlain(rawConfig) ?? {}) as MasterConfig
   mount(ctx, automationTasks, {})
+  mount(ctx, archiveIntegration, {})
   mount(ctx, authCookie, {})
   mount(ctx, appearance, {
     enabled: config.enabled ?? DEFAULT_SCHEDULE_CONFIG.enabled,

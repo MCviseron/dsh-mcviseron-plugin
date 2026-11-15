@@ -2,7 +2,7 @@
 
 English | [中文](README.md)
 
-MCviseron's **master plugin for DeepSeek Harness (DSH)**: one npm package and one `mcviseron` profile entry hosting seven components. DSH `client-modules` only composes a browser half for a Loader row whose name exactly equals the package name, so the master entry must be `dsh-mcviseron-plugin`; components run as sub-plugins and own settings sub-pages. The former `dsh-auto-review-restart-fix` and `dsh-task-guard` are merged here and will be deprecated.
+MCviseron's **master plugin for DeepSeek Harness (DSH)**: one npm package and one `mcviseron` profile entry hosting eight components. DSH `client-modules` only composes a browser half for a Loader row whose name exactly equals the package name, so the master entry must be `dsh-mcviseron-plugin`; components run as sub-plugins and own settings sub-pages. The former `dsh-auto-review-restart-fix` and `dsh-task-guard` are merged here and will be deprecated.
 
 ## Components
 
@@ -15,8 +15,9 @@ MCviseron's **master plugin for DeepSeek Harness (DSH)**: one npm package and on
 | **After-session action** | `mcviseron.sessionEnd` | “Restart after session” dropdown in the composer; the AI tool can arm it; restart waits for running tasks |
 | **Auth-cookie cleanup** | built in | Expires old `dsh-auth-*` cookies on every page load, keeping only the current one so restarts cannot push the request header to 16 KB |
 | **Automation task editing** | built-in tools | `automation_task_list/create/update/delete` call the Host schedule service and persist automatically |
+| **Archive-time integration (optional)** | conditional | Shows the Archive time tab only when `@linxin666/dsh-session-archive` is detected; no registration when absent |
 
-> 0.6.1 returns to a **single** `mcviseron` entry: DSH `client-modules` only composes a browser half for an exact package-name Loader row, and subpath rows silently dropped the whole client plugin. Components still run as sub-plugins and expose settings sub-pages.
+> 0.6.1 returns to a **single** `mcviseron` entry: DSH `client-modules` only composes a browser half for an exact package-name Loader row, and subpath rows silently dropped the whole client plugin. Components still run as sub-plugins and expose Auto-review / Todo / session-end / conditional archive-time sub-pages.
 
 ### 1. Appearance · light/dark by time
 
@@ -81,7 +82,8 @@ Settings gains a first-level **MCviseron plugin** section (`settings.section`, i
 
 - **Restart**: restart DeepSeek Harness (this component's settings).
 - **After-session action**: enable switch, render grace, AI email reminder, subject/body templates.
-- **Components**: list the six components and their configuration surfaces.
+- **Archive time (conditional)**: shown only when the third-party archive plugin is detected; no registration when absent or disabled.
+- **Components**: list the eight components and their configuration surfaces.
 
 The Appearance component is intentionally **not** here — its row stays under General → Appearance. Auto review and Todo guard have editable sub-pages; the Components tab is an overview.
 
@@ -143,7 +145,7 @@ Defaults: appearance off / `08:00–23:00`; auto-review both guards on, 6 s, 400
 ## How it works
 
 - `cordis.patch.yml` inserts one `mcviseron` master entry (`name: dsh-mcviseron-plugin`).
-- `src/index.ts` mounts the five components with `ctx.plugin`; each keeps its own `inject` and implementation.
+- `src/index.ts` mounts the eight components with `ctx.plugin`; each keeps its own `inject` and implementation.
 - `src/appearance` owns the two loopback routes (`/api/dsh-mcviseron/settings/describe|mutate`) the browser uses; the browser half lives in `src/client/` and registers the settings section and sub-pages.
 - The settings bridge accepts appearance top-level fields and nested `autoReviewFix.*` / `taskGuard.*` / `restart.*` / `sessionEnd.*` paths.
 - The master entry and components unwrap DSH 0.2 volatile config references before use.
@@ -152,11 +154,11 @@ Defaults: appearance off / `08:00–23:00`; auto-review both guards on, 6 s, 400
 
 | DSH version | Status |
 | --- | --- |
-| `0.2.2-rc.3` | ✅ pre-adapted (0.2.2-rc.3 types/deps + 122 tests; desktop runtime pending) |
-| `0.2.2-rc.1` | ✅ compatible (0.2.2-rc.1 types/deps + 122 tests) |
-| `0.2.1-rc.5` | ✅ compatible (rc.5 types/deps + 122 tests) |
-| `0.2.1-rc.3` | ✅ compatible (rc.3 types/deps + 122 tests) |
-| `0.2.1-rc.2` | ✅ current desktop runtime (122 tests + real Cordis contexts) |
+| `0.2.2-rc.3` | ✅ pre-adapted (0.2.2-rc.3 types/deps + 124 tests; desktop runtime pending) |
+| `0.2.2-rc.1` | ✅ compatible (0.2.2-rc.1 types/deps + 124 tests) |
+| `0.2.1-rc.5` | ✅ compatible (rc.5 types/deps + 124 tests) |
+| `0.2.1-rc.3` | ✅ compatible (rc.3 types/deps + 124 tests) |
+| `0.2.1-rc.2` | ✅ current desktop runtime (124 tests + real Cordis contexts) |
 | `0.2.0-rc.x` | ✅ covered by the peer range |
 | `0.1.x` | ❌ unsupported (different settings-namespace model) |
 

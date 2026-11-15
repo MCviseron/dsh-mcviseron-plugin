@@ -2,7 +2,7 @@
 
 [English](README.en.md) | 中文
 
-MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包、一个 `mcviseron` profile 条目挂载七个组件。DSH 的 `client-modules` 只给 Loader 行名称精确等于包名的条目组合浏览器半区，因此 master 条目名必须是 `dsh-mcviseron-plugin`；组件作为子插件运行，设置页提供各自子页。原 `dsh-auto-review-restart-fix` 与 `dsh-task-guard` 已并入本插件并逐步废弃。
+MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包、一个 `mcviseron` profile 条目挂载八个组件。DSH 的 `client-modules` 只给 Loader 行名称精确等于包名的条目组合浏览器半区，因此 master 条目名必须是 `dsh-mcviseron-plugin`；组件作为子插件运行，设置页提供各自子页。原 `dsh-auto-review-restart-fix` 与 `dsh-task-guard` 已并入本插件并逐步废弃。
 
 ## 组件
 
@@ -15,8 +15,9 @@ MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包、一个 `
 | **会话后动作** | `mcviseron.sessionEnd` | 输入框左侧「会话后重启」下拉；AI 工具可设置；重启等待任务结束 |
 | **认证 cookie 清理** | 内置 | 每次页面加载过期旧 `dsh-auth-*`，只保留当前，避免重启把请求头推到 16KB |
 | **自动化任务编辑** | 内置工具 | `automation_task_list/create/update/delete` 直接调用 Host schedule 并自动存盘 |
+| **归档时间集成（可选）** | 条件注册 | 仅检测到 `@linxin666/dsh-session-archive` 时显示「归档时间」子页；未安装不注册 |
 
-> 0.6.1 起回到**单一** `mcviseron` 条目：DSH `client-modules` 只给精确包名条目组合浏览器半区，子路径条目会让整个客户端插件（外观行、设置分区、重启回退）消失。组件仍在内部作为子插件运行，设置页有 Auto review / Todo 子页。
+> 0.6.1 起回到**单一** `mcviseron` 条目：DSH `client-modules` 只给精确包名条目组合浏览器半区，子路径条目会让整个客户端插件（外观行、设置分区、重启回退）消失。组件仍在内部作为子插件运行，设置页有 Auto review / Todo / 会话后动作 / 条件归档时间子页。
 
 ### 1. 外观 · 按时间自动切换深浅色
 
@@ -86,7 +87,8 @@ MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包、一个 `
 
 - **重启**：重启 DeepSeek Harness（本组件的设置面）。
 - **会话后动作**：启用开关、显示等待、AI 邮件提醒、邮件主题/正文模板。
-- **组件**：列出六个组件及其配置位置。
+- **归档时间（条件）**：检测到第三方归档插件时显示；未安装或禁用时不注册、不显示。
+- **组件**：列出八个组件及其配置位置。
 
 外观组件**不在**这里——它的设置行仍留在「通用 → 外观」，位置不变。没有设置面的组件不占用子页；`autoReview` / `taskGuard` 继续通过 profile 配置，组件子页会注明这一点。
 
@@ -220,7 +222,7 @@ pnpm add dsh-mcviseron-plugin
       name: dsh-mcviseron-plugin
 ```
 
-包根导出 `.` → `lib/index.js`。`src/index.ts` 的 `apply()` 用 `ctx.plugin` 依次挂载五个子组件，每个子组件保留自己的 `inject`、`Config` 与实现；设置页由 `src/client/` 注册。
+包根导出 `.` → `lib/index.js`。`src/index.ts` 的 `apply()` 用 `ctx.plugin` 依次挂载八个子组件，每个子组件保留自己的 `inject`、`Config` 与实现；设置页由 `src/client/` 注册。
 
 ### 组件装配
 
@@ -228,7 +230,7 @@ pnpm add dsh-mcviseron-plugin
 - `src/appearance/index.ts`：只有 Host 设置桥（`ctx.settings.configure({ auto: false })` + 两条 loopback 路由）；浏览器半边在 `src/client/`，读取 `mcviseron` 命名空间并驱动 `ctx.theme.setTheme`。
 - `src/auto-review-fix/index.ts`：`installAutoReview`，通过 `ctx.inject(['permissionPresets' | 'approval'])` 特性探测并包装服务。
 - `src/task-guard/index.ts`：`installTaskGuard`，注册 `tools/pre-execute`、`tools/post-execute`、`agent/pre-step`、`session/event`。
-- master 与五个子组件都会先 `toPlain()` 展开 DSH 0.2 的 volatile 配置引用，再交给实现。
+- master 与八个子组件都会先 `toPlain()` 展开 DSH 0.2 的 volatile 配置引用，再交给实现。
 
 ### 设置桥
 
@@ -247,11 +249,11 @@ DSH 0.2 的官方设置 apiproxy 不向浏览器暴露第三方命名空间，�
 
 | DSH 版本 | 状态 |
 | --- | --- |
-| `0.2.2-rc.3` | ✅ 预适配（0.2.2-rc.3 类型/依赖 + 122 项测试；桌面运行时待升级验证） |
-| `0.2.2-rc.1` | ✅ 兼容（0.2.2-rc.1 类型/依赖 + 122 项测试） |
-| `0.2.1-rc.5` | ✅ 兼容（rc.5 类型/依赖 + 122 项测试） |
-| `0.2.1-rc.3` | ✅ 兼容（rc.3 类型/依赖 + 122 项测试） |
-| `0.2.1-rc.2` | ✅ 当前桌面运行版本（122 项测试 + 真实 Cordis 上下文） |
+| `0.2.2-rc.3` | ✅ 预适配（0.2.2-rc.3 类型/依赖 + 124 项测试；桌面运行时待升级验证） |
+| `0.2.2-rc.1` | ✅ 兼容（0.2.2-rc.1 类型/依赖 + 124 项测试） |
+| `0.2.1-rc.5` | ✅ 兼容（rc.5 类型/依赖 + 124 项测试） |
+| `0.2.1-rc.3` | ✅ 兼容（rc.3 类型/依赖 + 124 项测试） |
+| `0.2.1-rc.2` | ✅ 当前桌面运行版本（124 项测试 + 真实 Cordis 上下文） |
 | `0.2.0-rc.x` | ✅ peer 范围覆盖（同一套设置、审批与 hook 接缝） |
 | `0.1.x` | ❌ 不支持：0.1 的插件自行注册设置命名空间，与本插件的条目 id 命名空间模型不同 |
 
@@ -281,7 +283,7 @@ src/
   volatile.ts                   展开 DSH volatile 配置引用
   loopback.ts                   loopback 信任栅栏
   routes.ts                     settings describe/mutate 桥（含嵌套组件路径）
-  index.ts                      master 条目：Config + 挂载五个子组件
+  index.ts                      master 条目：Config + 挂载八个子组件
   appearance/index.ts           外观子组件：设置桥
   auto-review-fix/index.ts      Auto review 子组件：Config + 装配
   task-guard/index.ts           Todo 守卫子组件：Config + 装配
@@ -317,7 +319,7 @@ test/
 
 ```bash
 pnpm install
-pnpm check     # typecheck + 122 项测试 + 构建
+pnpm check     # typecheck + 124 项测试 + 构建
 ```
 
 构建产物：`lib/index.js`（master ESM）、`lib/appearance.js`、`lib/auto-review-fix.js`、`lib/task-guard.js`、`lib/restart.js` 与 `lib/client.js`（浏览器模块）。`lib/` 不入库。

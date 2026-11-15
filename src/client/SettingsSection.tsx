@@ -1,10 +1,22 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { McviseronKey } from './locales.ts'
+import { ARCHIVE_API } from '../api.ts'
 import { AUTO_REVIEW_FIELDS, ConfigForm, SESSION_END_FIELDS, TASK_GUARD_FIELDS } from './ConfigForm.tsx'
 import { RestartCard } from './RestartCard.tsx'
 import { pageStyles } from './styles.ts'
 
-type Tab = 'restart' | 'autoReview' | 'taskGuard' | 'sessionEnd' | 'components'
+type Tab = 'restart' | 'autoReview' | 'taskGuard' | 'sessionEnd' | 'archive' | 'components'
+
+interface ArchiveStatus {
+  available: boolean
+  ledgerPath: string
+  ledgerExists: boolean
+  entries: number
+  observed: number
+  manual: number
+  archivedCount: number
+  unknownCount: number
+}
 
 /** Props composed by the `settings.section` slot. */
 export interface SettingsSectionProps {
@@ -19,6 +31,20 @@ export interface SettingsSectionProps {
  */
 export function SettingsSection({ t }: SettingsSectionProps) {
   const [tab, setTab] = useState<Tab>('restart')
+  const [archive, setArchive] = useState<ArchiveStatus | null>(null)
+
+  const loadArchive = async (): Promise<void> => {
+    try {
+      const response = await fetch(ARCHIVE_API.status, { credentials: 'same-origin', cache: 'no-store' })
+      if (!response.ok) { setArchive(null); return }
+      const value = await response.json() as ArchiveStatus
+      setArchive(value.available ? value : null)
+    } catch {
+      setArchive(null)
+    }
+  }
+
+  useEffect(() => { void loadArchive() }, [])
 
   return (
     <div style={pageStyles.page}>
@@ -61,6 +87,19 @@ export function SettingsSection({ t }: SettingsSectionProps) {
         >
           {t('page.tab.sessionEnd')}
         </button>
+        {archive?.available
+          ? (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'archive'}
+              onClick={() => { setTab('archive') }}
+              style={tab === 'archive' ? { ...pageStyles.tab, ...pageStyles.tabActive } : pageStyles.tab}
+            >
+              {t('page.tab.archive')}
+            </button>
+          )
+          : null}
         <button
           type="button"
           role="tab"
@@ -101,7 +140,40 @@ export function SettingsSection({ t }: SettingsSectionProps) {
                   fields={SESSION_END_FIELDS}
                 />
               )
-              : (
+              : tab === 'archive' && archive?.available
+                ? (
+                  <div style={pageStyles.card}>
+                    <div style={pageStyles.cardTitle}>{t('page.archive.title')}</div>
+                    <p style={pageStyles.lede}>{t('page.archive.description')}</p>
+                    <div style={pageStyles.componentRow}>
+                      <span style={pageStyles.componentName}>{t('page.archive.available')}</span>
+                      <span style={pageStyles.componentHint}>{archive.ledgerExists ? t('page.archive.ledger') : archive.ledgerPath}</span>
+                    </div>
+                    <div style={pageStyles.componentRow}>
+                      <span style={pageStyles.componentName}>{t('page.archive.archived')}</span>
+                      <span style={pageStyles.componentHint}>{archive.archivedCount}</span>
+                    </div>
+                    <div style={pageStyles.componentRow}>
+                      <span style={pageStyles.componentName}>{t('page.archive.observed')}</span>
+                      <span style={pageStyles.componentHint}>{archive.observed}</span>
+                    </div>
+                    <div style={pageStyles.componentRow}>
+                      <span style={pageStyles.componentName}>{t('page.archive.manual')}</span>
+                      <span style={pageStyles.componentHint}>{archive.manual}</span>
+                    </div>
+                    <div style={pageStyles.componentRow}>
+                      <span style={pageStyles.componentName}>{t('page.archive.unknown')}</span>
+                      <span style={pageStyles.componentHint}>{archive.unknownCount}</span>
+                    </div>
+                    <div style={pageStyles.componentRow}>
+                      <span style={pageStyles.componentName}>{t('page.archive.ledger')}</span>
+                      <span style={pageStyles.componentHint}>{archive.ledgerPath}</span>
+                    </div>
+                    <button type="button" onClick={() => { void loadArchive() }} style={pageStyles.tab}>{t('page.archive.refresh')}</button>
+                    <div style={pageStyles.cardStatus}>{t('page.archive.note')}</div>
+                  </div>
+                )
+                : (
               <div style={pageStyles.card}>
             <div style={pageStyles.cardTitle}>{t('page.components.title')}</div>
             <div style={pageStyles.componentRow}>
@@ -128,6 +200,14 @@ export function SettingsSection({ t }: SettingsSectionProps) {
               <span style={pageStyles.componentName}>{t('page.components.sessionEnd')}</span>
               <span style={pageStyles.componentHint}>{t('page.components.sessionEndHint')}</span>
             </div>
+            {archive?.available
+              ? (
+                <div style={pageStyles.componentRow}>
+                  <span style={pageStyles.componentName}>{t('page.components.archive')}</span>
+                  <span style={pageStyles.componentHint}>{t('page.components.archiveHint')}</span>
+                </div>
+              )
+              : null}
             <div style={pageStyles.cardStatus}>{t('page.components.note')}</div>
           </div>
         )}

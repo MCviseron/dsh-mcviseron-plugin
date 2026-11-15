@@ -15,3 +15,8 @@ export const SESSION_END_API = {
 export const AUTH_COOKIE_API = {
   prune: '/api/dsh-mcviseron/auth-cookies/prune',
 } as const
+
+/** Optional third-party archive-plugin integration. */
+export const ARCHIVE_API = {
+  status: '/api/dsh-mcviseron/archive-integration/status',
+} as const
