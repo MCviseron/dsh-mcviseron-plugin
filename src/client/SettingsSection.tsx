@@ -155,7 +155,6 @@ export function SettingsSection({ t }: SettingsSectionProps) {
                 ? (
                   <div style={pageStyles.card}>
                     <div style={pageStyles.cardTitle}>{t('page.archive.title')}</div>
-                    <p style={pageStyles.lede}>{t('page.archive.description')}</p>
                     <div style={pageStyles.componentRow}>
                       <span style={pageStyles.componentName}>{t('page.archive.available')}</span>
                       <span style={pageStyles.componentHint}>{archive.ledgerExists ? t('page.archive.ledger') : archive.ledgerPath}</span>
@@ -181,7 +180,6 @@ export function SettingsSection({ t }: SettingsSectionProps) {
                       <span style={pageStyles.componentHint}>{archive.ledgerPath}</span>
                     </div>
                     <button type="button" onClick={() => { void loadArchive() }} style={pageStyles.tab}>{t('page.archive.refresh')}</button>
-                    <div style={pageStyles.cardStatus}>{t('page.archive.note')}</div>
                   </div>
                 )
                 : (
