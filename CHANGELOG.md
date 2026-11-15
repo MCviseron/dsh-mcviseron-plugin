@@ -6,6 +6,20 @@
 - 设置行支持「立即测试」预览按钮。
 - Restart 组件支持 macOS/Linux（当前仅 Windows 桌面版）。
 
+## [0.7.4] - 2026-11-15
+
+### Compatibility
+
+- **适配 DSH 0.2.2-rc.3 的 Schedule 管理 API**：list 返回分页 { items }；create(request, sessionId, signal)、edit({ id, action, patch }, sessionId, signal) 取代旧的 create(sessionId, args) / update / delete。automation-tasks 同时兼容旧 API 与新 API，并保留旧工具参数到新 timing 的映射。
+
+### Fixed
+
+- **自动化任务列表/创建/修改/删除**：修复 0.2.2-rc.3 下 schedule.update is not a function、{ items } 分页形状和 schedule.edit 调用；新增现代 API 回归测试。
+
+### Tests
+
+- 合计 **122 项测试**；typecheck、build 全绿。
+
 ## [0.7.3] - 2026-11-15
 
 ### Compatibility

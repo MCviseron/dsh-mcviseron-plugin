@@ -118,3 +118,35 @@ test('automation_task_list normalizes the 0.2.2 { items } envelope', async () =>
   assert.equal(Array.isArray(result.tasks), true)
   assert.equal(result.tasks[0].id, 'schedule-1')
 })
+
+test('automation_task_update uses the modern schedule.edit API', async () => {
+  const calls: any[] = []
+  const tools = makeAutomationTaskTools({
+    list: async () => ({ items: [RECORD] }),
+    create: async () => RECORD,
+    edit: async (request: any, sessionId: string) => { calls.push({ request, sessionId }); return { ...RECORD, title: 'new' } },
+    delete: async () => ({}),
+  } as any)
+  const tool = tools.find(item => item.name === 'automation_task_update')!
+  const result = await tool.execute({ id: 'schedule-1', prompt: 'new prompt', weekly: { time: '09:00:00', time_zone: 'Asia/Shanghai', weekdays: [6] } }, EXEC) as any
+  assert.equal(result.ok, true)
+  assert.equal(calls[0].sessionId, 'session-a')
+  assert.equal(calls[0].request.action, 'update')
+  assert.equal(calls[0].request.id, 'schedule-1')
+  assert.equal(calls[0].request.patch.prompt, 'new prompt')
+  assert.deepEqual(calls[0].request.patch.timing, { kind: 'weekly', weekly: { time: '09:00:00', time_zone: 'Asia/Shanghai', weekdays: [6] } })
+})
+
+test('automation_task_delete uses the modern schedule.edit API', async () => {
+  const calls: any[] = []
+  const tools = makeAutomationTaskTools({
+    list: async () => ({ items: [RECORD] }),
+    create: async () => RECORD,
+    edit: async (request: any, sessionId: string) => { calls.push({ request, sessionId }); return { id: 'schedule-1', deleted: true } },
+    delete: async () => ({}),
+  } as any)
+  const tool = tools.find(item => item.name === 'automation_task_delete')!
+  const result = await tool.execute({ id: 'schedule-1' }, EXEC) as any
+  assert.equal(result.ok, true)
+  assert.deepEqual(calls[0], { request: { id: 'schedule-1', action: 'delete' }, sessionId: 'session-a' })
+})

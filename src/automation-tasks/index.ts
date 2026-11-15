@@ -21,10 +21,11 @@ interface ScheduleRecord {
 }
 
 interface ScheduleService {
-  list(filter: { sessionId: string }): Promise<ScheduleRecord[] | { items: ScheduleRecord[] }>
-  create(sessionId: string, input: Record<string, unknown>, signal?: AbortSignal): Promise<ScheduleRecord>
-  update(input: Record<string, unknown>, signal?: AbortSignal): Promise<Record<string, unknown>>
-  delete(input: Record<string, unknown>, signal?: AbortSignal): Promise<Record<string, unknown>>
+  list(filter?: Record<string, unknown>): Promise<ScheduleRecord[] | { items: ScheduleRecord[] }>
+  create(...args: any[]): Promise<ScheduleRecord>
+  update?(...args: any[]): Promise<Record<string, unknown>>
+  delete?(...args: any[]): Promise<Record<string, unknown>>
+  edit?(...args: any[]): Promise<Record<string, unknown>>
 }
 
 interface ToolExecution {
@@ -59,6 +60,21 @@ function log(message: string): void {
   } catch {
     /* diagnostics must never break registration */
   }
+}
+
+function isModernSchedule(schedule: ScheduleService): boolean {
+  return typeof schedule.edit === 'function'
+}
+
+function modernTiming(args: Record<string, unknown>): Record<string, unknown> | undefined {
+  if (args.after_seconds !== undefined) return { kind: 'after', after_seconds: args.after_seconds }
+  if (args.at !== undefined) return { kind: 'at', at: args.at }
+  if (args.every_seconds !== undefined) return { kind: 'every', every_seconds: args.every_seconds }
+  if (args.daily !== undefined) return { kind: 'daily', daily: args.daily }
+  if (args.weekly !== undefined) return { kind: 'weekly', weekly: args.weekly }
+  if (args.cron !== undefined) return { kind: 'cron', cron: args.cron }
+  if (args.rrule !== undefined) return { kind: 'rrule', rrule: args.rrule }
+  return undefined
 }
 
 function listRecords(result: ScheduleRecord[] | { items: ScheduleRecord[] }): ScheduleRecord[] {
@@ -193,7 +209,7 @@ export function makeAutomationTaskTools(schedule: ScheduleService): ToolDefiniti
         const sessionId = sessionIdOf(exec)
         if (sessionId === '') return { ok: false, code: 'no_session', error: 'no current session' }
         try {
-          return { ok: true, tasks: listRecords(await schedule.list({ sessionId })) }
+          return { ok: true, tasks: listRecords(await schedule.list(isModernSchedule(schedule) ? {} : { sessionId })) }
         } catch (error) {
           return serviceFailure(error)
         }
@@ -210,11 +226,23 @@ export function makeAutomationTaskTools(schedule: ScheduleService): ToolDefiniti
         const invalidInput = validateCreate(args)
         if (invalidInput !== undefined) return invalid(invalidInput)
         try {
-          const record = await schedule.create(sessionId, {
-            ...args,
-            title: String(args.title).trim(),
-            prompt: String(args.prompt).trim(),
-          }, exec.signal)
+          let record: ScheduleRecord
+          if (isModernSchedule(schedule)) {
+            const timing = modernTiming(args)
+            if (timing === undefined) return invalid('timing is required')
+            record = await schedule.create({
+              title: String(args.title).trim(),
+              prompt: String(args.prompt).trim(),
+              timing,
+              target: { kind: 'session', sessionId },
+            }, sessionId, exec.signal)
+          } else {
+            record = await schedule.create(sessionId, {
+              ...args,
+              title: String(args.title).trim(),
+              prompt: String(args.prompt).trim(),
+            }, exec.signal)
+          }
           return { ok: true, task: record }
         } catch (error) {
           return serviceFailure(error)
@@ -233,10 +261,19 @@ export function makeAutomationTaskTools(schedule: ScheduleService): ToolDefiniti
         if (invalidInput !== undefined) return invalid(invalidInput)
         try {
           const id = String(args.id)
-          const expected = listRecords(await schedule.list({ sessionId })).find(record => record.id === id)
-          if (expected === undefined) return { ok: false, code: 'schedule_not_found', error: 'automation task not found in this session: ' + id }
+          const expected = listRecords(await schedule.list(isModernSchedule(schedule) ? {} : { sessionId })).find(record => record.id === id)
+          if (expected === undefined) return { ok: false, code: 'schedule_not_found', error: 'automation task not found: ' + id }
           const change = timingChange(args)
-          const result = await schedule.update({
+          if (isModernSchedule(schedule)) {
+            const patch: Record<string, unknown> = {}
+            if (args.title !== undefined) patch.title = String(args.title).trim()
+            if (args.prompt !== undefined) patch.prompt = String(args.prompt).trim()
+            const timing = modernTiming(args)
+            if (timing !== undefined) patch.timing = timing
+            const result = await schedule.edit!({ id, action: 'update', patch }, sessionId, exec.signal)
+            return { ok: true, task: result }
+          }
+          const result = await schedule.update!({
             sessionId,
             id,
             expected,
@@ -263,7 +300,11 @@ export function makeAutomationTaskTools(schedule: ScheduleService): ToolDefiniti
           return invalid('id must be a non-empty string without surrounding whitespace')
         }
         try {
-          const result = await schedule.delete({ sessionId, id: String(args.id) }, exec.signal)
+          if (isModernSchedule(schedule)) {
+            const result = await schedule.edit!({ id: String(args.id), action: 'delete' }, sessionId, exec.signal)
+            return { ok: true, ...result }
+          }
+          const result = await schedule.delete!({ sessionId, id: String(args.id) }, exec.signal)
           return { ok: true, ...result }
         } catch (error) {
           return serviceFailure(error)
