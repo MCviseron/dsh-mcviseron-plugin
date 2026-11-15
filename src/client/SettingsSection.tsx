@@ -38,6 +38,17 @@ export function SettingsSection({ t }: SettingsSectionProps) {
       const response = await fetch(ARCHIVE_API.status, { credentials: 'same-origin', cache: 'no-store' })
       if (!response.ok) { setArchive(null); return }
       const value = await response.json() as ArchiveStatus
+      if (value.available) {
+        try {
+          const inventoryResponse = await fetch('/api/dsh-session-archive/inventory', { credentials: 'same-origin', cache: 'no-store' })
+          if (inventoryResponse.ok) {
+            const inventory = await inventoryResponse.json() as { rows?: Array<{ archived?: boolean; archivedAt?: number }> }
+            const rows = Array.isArray(inventory.rows) ? inventory.rows : []
+            value.archivedCount = rows.filter(row => row.archived === true).length
+            value.unknownCount = rows.filter(row => row.archived === true && row.archivedAt === undefined).length
+          }
+        } catch { /* keep host counts */ }
+      }
       setArchive(value.available ? value : null)
     } catch {
       setArchive(null)
