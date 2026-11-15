@@ -152,10 +152,11 @@ Defaults: appearance off / `08:00–23:00`; auto-review both guards on, 6 s, 400
 
 | DSH version | Status |
 | --- | --- |
-| `0.2.2-rc.1` | ✅ pre-adapted (0.2.2-rc.1 types/deps + 119 tests; desktop runtime pending) |
-| `0.2.1-rc.5` | ✅ compatible (rc.5 types/deps + 119 tests) |
-| `0.2.1-rc.3` | ✅ compatible (rc.3 types/deps + 119 tests) |
-| `0.2.1-rc.2` | ✅ current desktop runtime (119 tests + real Cordis contexts) |
+| `0.2.2-rc.3` | ✅ pre-adapted (0.2.2-rc.3 types/deps + 120 tests; desktop runtime pending) |
+| `0.2.2-rc.1` | ✅ compatible (0.2.2-rc.1 types/deps + 120 tests) |
+| `0.2.1-rc.5` | ✅ compatible (rc.5 types/deps + 120 tests) |
+| `0.2.1-rc.3` | ✅ compatible (rc.3 types/deps + 120 tests) |
+| `0.2.1-rc.2` | ✅ current desktop runtime (120 tests + real Cordis contexts) |
 | `0.2.0-rc.x` | ✅ covered by the peer range |
 | `0.1.x` | ❌ unsupported (different settings-namespace model) |
 

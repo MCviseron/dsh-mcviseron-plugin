@@ -21,7 +21,7 @@ interface ScheduleRecord {
 }
 
 interface ScheduleService {
-  list(filter: { sessionId: string }): Promise<ScheduleRecord[]>
+  list(filter: { sessionId: string }): Promise<ScheduleRecord[] | { items: ScheduleRecord[] }>
   create(sessionId: string, input: Record<string, unknown>, signal?: AbortSignal): Promise<ScheduleRecord>
   update(input: Record<string, unknown>, signal?: AbortSignal): Promise<Record<string, unknown>>
   delete(input: Record<string, unknown>, signal?: AbortSignal): Promise<Record<string, unknown>>
@@ -59,6 +59,10 @@ function log(message: string): void {
   } catch {
     /* diagnostics must never break registration */
   }
+}
+
+function listRecords(result: ScheduleRecord[] | { items: ScheduleRecord[] }): ScheduleRecord[] {
+  return Array.isArray(result) ? result : result.items
 }
 
 function sessionIdOf(exec: ToolExecution): string {
@@ -189,7 +193,7 @@ export function makeAutomationTaskTools(schedule: ScheduleService): ToolDefiniti
         const sessionId = sessionIdOf(exec)
         if (sessionId === '') return { ok: false, code: 'no_session', error: 'no current session' }
         try {
-          return { ok: true, tasks: await schedule.list({ sessionId }) }
+          return { ok: true, tasks: listRecords(await schedule.list({ sessionId })) }
         } catch (error) {
           return serviceFailure(error)
         }
@@ -229,7 +233,7 @@ export function makeAutomationTaskTools(schedule: ScheduleService): ToolDefiniti
         if (invalidInput !== undefined) return invalid(invalidInput)
         try {
           const id = String(args.id)
-          const expected = (await schedule.list({ sessionId })).find(record => record.id === id)
+          const expected = listRecords(await schedule.list({ sessionId })).find(record => record.id === id)
           if (expected === undefined) return { ok: false, code: 'schedule_not_found', error: 'automation task not found in this session: ' + id }
           const change = timingChange(args)
           const result = await schedule.update({

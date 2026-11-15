@@ -104,3 +104,17 @@ test('automation_task_delete removes the exact task', async () => {
   assert.equal(result.ok, true)
   assert.deepEqual(calls[0], { name: 'delete', value: { sessionId: 'session-a', id: 'schedule-1' } })
 })
+
+test('automation_task_list normalizes the 0.2.2 { items } envelope', async () => {
+  const tools = makeAutomationTaskTools({
+    list: async () => ({ items: [RECORD] }),
+    create: async () => RECORD,
+    update: async () => ({ record: RECORD }),
+    delete: async () => ({ id: 'schedule-1', deleted: true }),
+  } as any)
+  const tool = tools.find(item => item.name === 'automation_task_list')!
+  const result = await tool.execute({}, EXEC) as any
+  assert.equal(result.ok, true)
+  assert.equal(Array.isArray(result.tasks), true)
+  assert.equal(result.tasks[0].id, 'schedule-1')
+})

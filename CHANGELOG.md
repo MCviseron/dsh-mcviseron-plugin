@@ -6,6 +6,20 @@
 - 设置行支持「立即测试」预览按钮。
 - Restart 组件支持 macOS/Linux（当前仅 Windows 桌面版）。
 
+## [0.7.3] - 2026-11-15
+
+### Compatibility
+
+- **预适配 DSH `0.2.2-rc.3`（nightly next）**：开发依赖升级到 0.2.2-rc.3；peer 范围加入 `^0.2.2-rc.3`。当前桌面仍为 `0.2.2-rc.1`，rc.3 待升级后做真实运行时验证。
+
+### Fixed
+
+- **自动化任务列表返回形状**：DSH 0.2.2 的 `ctx.schedule.list()` 返回 `{ items: [...] }`，而组件仍按数组调用 `.find`，导致 `automation_task_update` 报 `(intermediate value).find is not a function`。现在同时兼容数组和 `{ items }`，并补回归测试。
+
+### Tests
+
+- 合计 **120 项测试**；typecheck、build 全绿。
+
 ## [0.7.2] - 2026-11-08
 
 ### Compatibility
