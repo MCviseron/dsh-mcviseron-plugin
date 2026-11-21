@@ -54,8 +54,8 @@ test('autoReview defaults and numeric bounds', () => {
     translateProvider: '',
     translateModel: '',
     reviewContextGuard: true,
-    reviewMaxHistoryChars: 120000,
-    reviewKeepRecentEntries: 16,
+    reviewMaxHistoryChars: 200000,
+    reviewKeepRecentEntries: 32,
   })
   assert.equal(resolve(AutoReviewConfig, { translateApprovalReason: false }).translateApprovalReason, false)
   assert.throws(() => resolve(AutoReviewConfig, { translateTimeoutMs: 10 }))

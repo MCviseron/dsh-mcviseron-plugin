@@ -16,8 +16,8 @@ export const DEFAULT_AUTO_REVIEW_CONFIG = {
   translateProvider: '',
   translateModel: '',
   reviewContextGuard: true,
-  reviewMaxHistoryChars: 120000,
-  reviewKeepRecentEntries: 16,
+  reviewMaxHistoryChars: 200000,
+  reviewKeepRecentEntries: 32,
 } as const
 
 export const Config = z.object({

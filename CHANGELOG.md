@@ -6,6 +6,17 @@
 - 设置行支持「立即测试」预览按钮。
 - Restart 组件支持 macOS/Linux（当前仅 Windows 桌面版）。
 
+## [0.7.6] - 2026-11-15
+
+### Fixed
+
+- **DSH 0.2.2 Auto review 请求未被裁剪**：0.2.2 把 reviewer 历史改成 `purpose: auto-review` + 每条消息一个 JSON 条目，旧版 `FILTERED_HISTORY` 检测永远不命中，长会话仍会 `CONTEXT_WINDOW_EXCEEDED`。现在按 `purpose` 识别新格式，保留 ENVIRONMENT、pending action、全部用户/父级指令、每种工具最新 schema 和最近 32 条；旧格式继续兼容。
+- **上下文预算**：默认历史预算从 120k 提升到 200k 字符，旧工具参数/图片/超长 schema 继续压缩，减少长会话下 reviewer 丢失上下文。
+
+### Tests
+
+- 合计 **126 项测试**；typecheck、build 全绿。
+
 ## [0.7.5] - 2026-11-15
 
 ### Added

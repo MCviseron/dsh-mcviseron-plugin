@@ -54,7 +54,7 @@ function textOf(message: unknown): string | undefined {
 }
 
 /** Detect the exact one-message request shape Auto review sends to llm.stream. */
-export function isAutoReviewRequest(options: unknown): options is ReviewOptions {
+export function isLegacyAutoReviewRequest(options: unknown): options is ReviewOptions {
   if (!record(options)) return false
   const system = options.system
   if (typeof system !== 'string' || !system.includes(REVIEW_MARKER) || !system.includes(REVIEW_MARKER_2)) return false
@@ -173,7 +173,9 @@ function logTrim(originalChars: number, nextChars: number, originalEntries: numb
  * byte-for-byte unchanged.
  */
 export function trimReviewRequest<T extends ReviewOptions>(options: T, settings: ReviewContextSettings): T {
-  if (!settings.enabled || !isAutoReviewRequest(options)) return options
+  if (!settings.enabled) return options
+  if (isModernAutoReviewRequest(options)) return trimModernReviewRequest(options, settings)
+  if (!isLegacyAutoReviewRequest(options)) return options
   const messages = options.messages as ReviewMessage[]
   const message = messages[0]
   const text = textOf(message)
@@ -207,6 +209,146 @@ export function trimReviewRequest<T extends ReviewOptions>(options: T, settings:
       ...messages.slice(1),
     ],
   }
+}
+
+const MODERN_PURPOSE = 'auto-review'
+const ENVIRONMENT_HEADER = 'ENVIRONMENT\n'
+const MODERN_USER_ROLES = new Set(['user-instruction', 'direct-parent-instruction', 'constraint', 'checkpoint', 'human-instruction'])
+const MODERN_USER_TEXT_CHARS = 8_000
+const MODERN_TOOL_ARGUMENT_CHARS = 4_000
+const MODERN_SCHEMA_DESCRIPTION_CHARS = 4_000
+const MODERN_SCHEMA_PARAMETER_CHARS = 12_000
+
+/** Detect the 0.2.2 review request: purpose auto-review, one message per retained item. */
+export function isModernAutoReviewRequest(options: unknown): options is ReviewOptions & { purpose: 'auto-review' } {
+  if (!record(options) || options.purpose !== MODERN_PURPOSE) return false
+  if (typeof options.system !== 'string' || !options.system.includes(REVIEW_MARKER) || !options.system.includes(REVIEW_MARKER_2)) return false
+  if (!Array.isArray(options.messages) || options.messages.length < 2) return false
+  const first = textOf(options.messages[0])
+  return first !== undefined && first.startsWith(ENVIRONMENT_HEADER)
+}
+
+/** Detect either the 0.2.2 request or the older FILTERED_HISTORY request. */
+export function isAutoReviewRequest(options: unknown): options is ReviewOptions {
+  return isModernAutoReviewRequest(options) || isLegacyAutoReviewRequest(options)
+}
+
+function modernRole(entry: unknown): string | undefined {
+  return record(entry) && typeof entry.role === 'string' ? entry.role : undefined
+}
+
+function modernProtected(entry: unknown, index: number, lastIndex: number, schemaIndexes: ReadonlySet<number>): boolean {
+  if (index === lastIndex) return true
+  const role = modernRole(entry)
+  if (role !== undefined && MODERN_USER_ROLES.has(role)) return true
+  return schemaIndexes.has(index)
+}
+
+function compactModernContent(content: unknown, textLimit: number): unknown[] {
+  if (!Array.isArray(content)) return []
+  return content.map((block) => {
+    if (!record(block)) return { type: 'text', text: '[non-text history block omitted from reviewer context]' }
+    if (block.type === 'text' && typeof block.text === 'string') {
+      return { ...block, text: truncateText(block.text, textLimit) }
+    }
+    return { type: 'text', text: '[' + String(block.type ?? 'attachment') + ' omitted from reviewer context]' }
+  })
+}
+
+function compactModernEntry(entry: unknown, pending: boolean): unknown {
+  if (!record(entry)) return { kind: 'summary', role: 'fact', content: [{ type: 'text', text: '[invalid history entry omitted]' }] }
+  if (pending) return entry
+  if (entry.kind === 'user-message') {
+    return { ...entry, content: compactModernContent(entry.content, MODERN_USER_TEXT_CHARS) }
+  }
+  if (entry.kind === 'tool-call') {
+    if (typeof entry.arguments === 'string') {
+      return { ...entry, arguments: truncateText(entry.arguments, MODERN_TOOL_ARGUMENT_CHARS) }
+    }
+    if (entry.arguments !== undefined) {
+      let rendered = ''
+      try { rendered = JSON.stringify(entry.arguments) ?? '' } catch { rendered = '' }
+      return { ...entry, arguments: truncateText(rendered, MODERN_TOOL_ARGUMENT_CHARS) }
+    }
+  }
+  if (entry.kind === 'tool-schema') {
+    const description = typeof entry.description === 'string'
+      ? truncateText(entry.description, MODERN_SCHEMA_DESCRIPTION_CHARS)
+      : entry.description
+    let parameters = entry.parameters
+    if (parameters !== undefined) {
+      try {
+        const rendered = JSON.stringify(parameters) ?? ''
+        if (rendered.length > MODERN_SCHEMA_PARAMETER_CHARS) parameters = truncateText(rendered, MODERN_SCHEMA_PARAMETER_CHARS)
+      } catch { parameters = '[unserializable schema parameters omitted]' }
+    }
+    return { ...entry, description, parameters }
+  }
+  return entry
+}
+
+function modernSchemaIndexes(entries: unknown[]): Set<number> {
+  const indexes = new Map<string, number>()
+  entries.forEach((entry, index) => {
+    if (!record(entry) || entry.kind !== 'tool-schema') return
+    indexes.set(String(entry.mode) + '\0' + String(entry.name), index)
+  })
+  return new Set(indexes.values())
+}
+
+/**
+ * Trim the 0.2.2 review request. The environment and pending action stay
+ * byte-identical; instruction entries and the latest schema per tool survive;
+ * recent entries and a bounded number of older facts are retained.
+ */
+export function trimModernReviewRequest<T extends ReviewOptions>(options: T, settings: ReviewContextSettings): T {
+  const messages = options.messages as ReviewMessage[]
+  const first = textOf(messages[0])
+  if (first === undefined || !first.startsWith(ENVIRONMENT_HEADER)) return options
+  const entries: unknown[] = []
+  for (const message of messages.slice(1)) {
+    const text = textOf(message)
+    if (text === undefined) return options
+    try { entries.push(JSON.parse(text)) } catch { return options }
+  }
+  if (entries.length === 0) return options
+  const lastIndex = entries.length - 1
+  const schemaIndexes = modernSchemaIndexes(entries)
+  const recentStart = Math.max(0, entries.length - Math.max(1, settings.keepRecentEntries))
+  const selected: number[] = []
+  for (let index = 0; index < entries.length; index += 1) {
+    if (index >= recentStart || modernProtected(entries[index], index, lastIndex, schemaIndexes)) selected.push(index)
+  }
+  let omitted = entries.length - selected.length
+  const compacted = selected.map(index => compactModernEntry(entries[index], index === lastIndex))
+  while (selected.length > 2 && jsonLength(compacted) > settings.maxHistoryChars) {
+    let at = selected.findIndex((index, position) => index !== lastIndex && position < selected.length - 1 && !modernProtected(entries[index], index, lastIndex, schemaIndexes))
+    if (at < 0) at = selected.findIndex((index, position) => index !== lastIndex && position < selected.length - 1)
+    if (at < 0) break
+    selected.splice(at, 1)
+    compacted.splice(at, 1)
+    omitted += 1
+  }
+  const summary = {
+    kind: 'summary',
+    role: 'fact',
+    content: [{
+      type: 'text',
+      text: '[auto-review-fix] ' + String(omitted)
+        + ' earlier history entries omitted from the reviewer context (original history '
+        + String(jsonLength(entries)) + ' chars). Current action, instructions and recent context are retained.',
+    }],
+  }
+  const nextMessages: ReviewMessage[] = [messages[0]]
+  if (omitted > 0) nextMessages.push({ role: 'user', content: [{ type: 'text', text: JSON.stringify(summary) }] })
+  selected.forEach((originalIndex, position) => {
+    const original = messages[originalIndex + 1]
+    if (originalIndex === lastIndex) nextMessages.push(original)
+    else nextMessages.push({ ...original, content: [{ type: 'text', text: JSON.stringify(compacted[position]) }] })
+  })
+  if (jsonLength(nextMessages) >= jsonLength(messages)) return options
+  logTrim(jsonLength(messages), jsonLength(nextMessages), entries.length, selected.length)
+  return { ...options, messages: nextMessages }
 }
 
 const guardedLlms = new WeakMap<object, { settings: ReviewContextSettings }>()

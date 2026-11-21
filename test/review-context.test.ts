@@ -142,6 +142,52 @@ test('boundEntries keeps protected entries even when it has to drop facts', () =
   assert.ok(serialized.length <= 3_000 + 1_000)
 })
 
+
+function modernReviewOptions(entries: unknown[], purpose: unknown = 'auto-review'): ReviewOptions & { messages: any[] } {
+  return {
+    provider: 'provider',
+    model: 'model',
+    purpose,
+    system: 'REVIEW_POLICY You are the final authorization reviewer for exactly one pending tool call.',
+    messages: [
+      { role: 'user', content: [{ type: 'text', text: 'ENVIRONMENT\n' + JSON.stringify({ cwd: 'D:/project' }) }] },
+      ...entries.map(entry => ({ role: 'user', content: [{ type: 'text', text: JSON.stringify(entry) }] })),
+    ],
+    temperature: 0,
+  }
+}
+
+test('the 0.2.2 per-message review request is recognised and bounded', () => {
+  const history: unknown[] = []
+  for (let index = 0; index < 300; index += 1) {
+    history.push(toolEntry(index))
+    if (index === 0 || index === 150) history.push(userEntry('user-instruction', 'instruction-' + String(index)))
+  }
+  history.push({ kind: 'tool-call', role: 'fact', mode: 'native', name: 'pwsh', arguments: 'action-marker' })
+  const options = modernReviewOptions(history)
+  assert.equal(isAutoReviewRequest(options), true)
+  const trimmed = trimReviewRequest(options, SETTINGS)
+  const messages = trimmed.messages as any[]
+  assert.equal(JSON.parse(messages.at(-1).content[0].text).arguments, 'action-marker')
+  const text = JSON.stringify(messages)
+  assert.ok(text.includes('instruction-0'))
+  assert.ok(text.includes('instruction-150'))
+  assert.ok(text.includes('earlier history entries omitted'))
+  assert.ok(JSON.stringify(messages).length < JSON.stringify(options.messages).length)
+})
+
+test('the 0.2.2 guard keeps the latest tool schema and drops images from old facts', () => {
+  const schema = { kind: 'tool-schema', role: 'fact', mode: 'native', name: 'pwsh', description: 'shell', parameters: { type: 'object' } }
+  const image = { kind: 'user-message', role: 'fact', source: { kind: 'user' }, content: [{ type: 'image', data: 'A'.repeat(100_000) }] }
+  const history: unknown[] = [schema, image, ...Array.from({ length: 20 }, (_, index) => toolEntry(index))]
+  history.push({ kind: 'tool-call', role: 'fact', mode: 'native', name: 'pwsh', arguments: 'pending' })
+  const trimmed = trimReviewRequest(modernReviewOptions(history), { ...SETTINGS, maxHistoryChars: 8_000, keepRecentEntries: 4 })
+  const text = JSON.stringify(trimmed.messages)
+  assert.ok(text.includes('tool-schema'))
+  assert.ok(!text.includes('A'.repeat(1_000)))
+  assert.equal(JSON.parse((trimmed.messages as any[]).at(-1).content[0].text).arguments, 'pending')
+})
+
 test('the llm.stream wrapper trims only reviewer calls', () => {
   const calls: unknown[] = []
   const llm = {

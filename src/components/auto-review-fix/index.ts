@@ -91,8 +91,8 @@ export function normalizeConfig(config?: unknown): AutoReviewSettings {
     model: stringSetting(source, 'translateModel', ''),
     reviewContext: {
       enabled: boolSetting(source, 'reviewContextGuard', true),
-      maxHistoryChars: numberSetting(source, 'reviewMaxHistoryChars', 120000, 20000, 600000),
-      keepRecentEntries: numberSetting(source, 'reviewKeepRecentEntries', 16, 4, 64),
+      maxHistoryChars: numberSetting(source, 'reviewMaxHistoryChars', 200000, 20000, 600000),
+      keepRecentEntries: numberSetting(source, 'reviewKeepRecentEntries', 32, 4, 64),
     },
   }
 }
