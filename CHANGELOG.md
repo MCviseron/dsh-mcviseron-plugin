@@ -6,6 +6,17 @@
 - 设置行支持「立即测试」预览按钮。
 - Restart 组件支持 macOS/Linux（当前仅 Windows 桌面版）。
 
+## [0.7.7] - 2026-11-15
+
+### Compatibility
+
+- **预适配 DSH `0.2.2-rc.5`（nightly next）**：开发依赖升级到 0.2.2-rc.5，peer 范围加入 `^0.2.2-rc.5`，补齐 `dsh-error` rc.5 peer 图；当前桌面安装仍为 `0.2.2-rc.3`，真实运行时验证待桌面升级后补做。
+- 复核 rc.5 的 Auto review 请求仍为 `purpose: auto-review` + 每条历史 JSON，0.7.6 的上下文裁剪逻辑兼容该格式。
+
+### Tests
+
+- 合计 **126 项测试**；typecheck、build 全绿。
+
 ## [0.7.6] - 2026-11-15
 
 ### Fixed
