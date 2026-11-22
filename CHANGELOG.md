@@ -6,6 +6,16 @@
 - 设置行支持「立即测试」预览按钮。
 - Restart 组件支持 macOS/Linux（当前仅 Windows 桌面版）。
 
+## [0.7.8] - 2026-11-22
+
+### Fixed
+
+- **GitHub Actions Linux 测试失败**：`test/archive-integration.test.ts` 固定使用 Windows 临时目录，Linux runner 上 `mkdtemp` 失败。改为按 `TEMP` / `TMPDIR` / 平台默认目录选择，Windows 与 Linux 均可运行。
+
+### Tests
+
+- 合计 **126 项测试**；`pnpm install --frozen-lockfile`、typecheck、build 全绿。
+
 ## [0.7.7] - 2026-11-15
 
 ### Compatibility

@@ -5,7 +5,7 @@ import test from 'node:test'
 import { makeArchiveStatus } from '../src/archive-integration/index.ts'
 
 function fixture(withPlugin: boolean) {
-  const home = mkdtempSync(join(process.env.TEMP || 'C:/Users/25639/AppData/Local/Temp', 'mcviseron-archive-'))
+  const home = mkdtempSync(join(process.env.TEMP || process.env.TMPDIR || (process.platform === 'win32' ? 'C:/Users/25639/AppData/Local/Temp' : '/tmp'), 'mcviseron-archive-'))
   const dir = join(home, 'dsh-session-archive')
   mkdirSync(dir, { recursive: true })
   writeFileSync(join(dir, 'archive-ledger.json'), JSON.stringify({ version: 1, entries: { 'session-a': { archivedAt: 1, source: 'observed' } } }))
