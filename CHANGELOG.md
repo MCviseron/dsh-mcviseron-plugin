@@ -6,6 +6,12 @@
 - 设置行支持「立即测试」预览按钮。
 - Restart 组件支持 macOS/Linux（当前仅 Windows 桌面版）。
 
+## [Unreleased]
+
+### Docs
+
+- 在 `docs/automation-tasks.md` 补充 Host Schedule 管理 API：0.2.2 的 `list({}) -> { items }`、`create(request, sessionId, signal)`、`edit({ id, action, patch }, sessionId, signal)`，以及旧版 `list({ sessionId })` / `create(sessionId, request)` / `update` / `delete` 的兼容层与 timing 映射；README 组件表加入文档链接。
+
 ## [0.7.8] - 2026-11-22
 
 ### Fixed

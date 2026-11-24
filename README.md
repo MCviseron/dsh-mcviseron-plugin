@@ -14,7 +14,7 @@ MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包、一个 `
 | **重启 DeepSeek Harness** | `mcviseron.restart` | 「设置 → MCviseron 插件」里的重启按钮：关闭并重新启动桌面应用 |
 | **会话后动作** | `mcviseron.sessionEnd` | 输入框左侧「会话后重启」下拉；AI 工具可设置；重启等待任务结束 |
 | **认证 cookie 清理** | 内置 | 每次页面加载过期旧 `dsh-auth-*`，只保留当前，避免重启把请求头推到 16KB |
-| **自动化任务编辑** | 内置工具 | `automation_task_list/create/update/delete` 直接调用 Host schedule 并自动存盘 |
+| **自动化任务编辑** | 内置工具 | `automation_task_list/create/update/delete` 直接调用 Host schedule 并自动存盘；API 兼容说明见 [docs/automation-tasks.md](docs/automation-tasks.md) |
 | **归档时间集成（可选）** | 条件注册 | 仅检测到 `@linxin666/dsh-session-archive` 时显示「归档时间」子页；未安装不注册 |
 
 > 0.6.1 起回到**单一** `mcviseron` 条目：DSH `client-modules` 只给精确包名条目组合浏览器半区，子路径条目会让整个客户端插件（外观行、设置分区、重启回退）消失。组件仍在内部作为子插件运行，设置页有 Auto review / Todo / 会话后动作 / 条件归档时间子页。

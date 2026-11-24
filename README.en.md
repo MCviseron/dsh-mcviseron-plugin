@@ -14,7 +14,7 @@ MCviseron's **master plugin for DeepSeek Harness (DSH)**: one npm package and on
 | **Restart DeepSeek Harness** | `mcviseron.restart` | Button in Settings → MCviseron plugin that closes and relaunches the desktop application |
 | **After-session action** | `mcviseron.sessionEnd` | “Restart after session” dropdown in the composer; the AI tool can arm it; restart waits for running tasks |
 | **Auth-cookie cleanup** | built in | Expires old `dsh-auth-*` cookies on every page load, keeping only the current one so restarts cannot push the request header to 16 KB |
-| **Automation task editing** | built-in tools | `automation_task_list/create/update/delete` call the Host schedule service and persist automatically |
+| **Automation task editing** | built-in tools | `automation_task_list/create/update/delete` call the Host schedule service and persist automatically; see [docs/automation-tasks.md](docs/automation-tasks.md) for API compatibility |
 | **Archive-time integration (optional)** | conditional | Shows the Archive time tab only when `@linxin666/dsh-session-archive` is detected; no registration when absent |
 
 > 0.6.1 returns to a **single** `mcviseron` entry: DSH `client-modules` only composes a browser half for an exact package-name Loader row, and subpath rows silently dropped the whole client plugin. Components still run as sub-plugins and expose Auto-review / Todo / session-end / conditional archive-time sub-pages.

@@ -27,6 +27,55 @@ DSH 官方的 `schedule_create/list/update/delete` 只在声明了
 - `weekly`：`{ time, time_zone, weekdays }`；
 - `cron`：`{ expression, time_zone }`。
 
+## Host Schedule 管理 API
+
+组件不直接编辑 `schedule.json`，只调用 Host 的 `ctx.schedule` 服务。DSH 0.2.2
+与旧版接口不同，组件用 `typeof schedule.edit === 'function'` 探测并分层适配：
+
+### DSH 0.2.2+
+
+```ts
+// 列表：分页信封
+const page = await schedule.list({}, exec.signal)
+// page.items: ScheduleTask[]
+
+// 创建：request 带 target，sessionId 作为绑定参数
+const task = await schedule.create({
+  title: '...',
+  prompt: '...',
+  timing: { kind: 'weekly', weekly: { time: '09:00', time_zone: 'Asia/Shanghai', weekdays: [6] } },
+  target: { kind: 'session', sessionId },
+}, sessionId, exec.signal)
+
+// 修改 / 删除：统一走 edit
+await schedule.edit({ id, action: 'update', patch }, sessionId, exec.signal)
+await schedule.edit({ id, action: 'delete' }, sessionId, exec.signal)
+```
+
+### 旧版 API
+
+```ts
+const tasks = await schedule.list({ sessionId }, exec.signal) // ScheduleTask[]
+const task = await schedule.create(sessionId, request, exec.signal)
+await schedule.update(sessionId, id, patch, exec.signal)
+await schedule.delete(sessionId, id, exec.signal)
+```
+
+### 工具参数到 timing 的映射
+
+| 工具参数 | Host timing |
+|---|---|
+| `after_seconds` | `{ kind: 'after', after_seconds }` |
+| `at` | `{ kind: 'at', at }` |
+| `every_seconds` | `{ kind: 'every', every_seconds }` |
+| `daily` | `{ kind: 'daily', daily }` |
+| `weekly` | `{ kind: 'weekly', weekly }` |
+| `cron` | `{ kind: 'cron', cron }` |
+
+`listRecords()` 同时接受 `ScheduleTask[]` 和 `{ items: ScheduleTask[] }`，避免
+0.2.2 升级后 `.find is not a function`。旧 API 的 update/delete 只在新 API 缺失时
+才使用。
+
 ## 自动存盘
 
 工具直接调用 `ctx.schedule`；该方法负责持久化，和官方自动化任务 UI 使用同一个
