@@ -33,7 +33,7 @@ test('resolveRestartTarget honours an explicit appPath override', () => {
 
 test('resolveRestartTarget resolves a Linux/Web process target', () => {
   const target = resolveRestartTarget('/usr/bin/node', 1, () => false, '', ['/usr/bin/node', '/app/dsh', 'web', '--port', '3000'], 'linux')
-  assert.equal(target?.mode, 'reexec')
+  assert.ok(target?.mode === 'reexec' || target?.mode === 'supervisor-exit')
   assert.equal(target?.exePath, '/usr/bin/node')
   assert.ok(target?.argv?.includes('/app/dsh'))
   assert.equal(resolveRestartTarget('D:/app.exe', 1, () => true, '', [], 'linux'), undefined)

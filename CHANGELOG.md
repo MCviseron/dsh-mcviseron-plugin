@@ -1,3 +1,13 @@
+## [0.8.1] - 2026-11-22
+
+### Fixed
+
+- **Linux CI 测试环境差异**：`resolveRestartTarget` 的 Linux 目标单测不再假定必然是 reexec；CI  runner 若带 systemd 环境变量时允许 supervisor-exit，具体模式由 `resolveProcessRestartTarget` 的独立测试覆盖。
+
+### Tests
+
+- 129 项测试；typecheck、build 全绿。
+
 ## [0.8.0] - 2026-11-22
 
 ### Added
