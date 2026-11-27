@@ -1,5 +1,5 @@
-import { execFileSync } from 'node:child_process'
-import { appendFileSync, existsSync } from 'node:fs'
+import { execFileSync, spawn } from 'node:child_process'
+import { appendFileSync, existsSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
@@ -33,11 +33,17 @@ export interface RestartConfig {
   appPath?: string
 }
 
-/** The desktop executable and the two PIDs the helper must wait for. */
+/** How the Host process is restarted. */
+export type RestartMode = 'desktop' | 'reexec' | 'supervisor-exit'
+
+/** A desktop app target or a Linux/Web process target. */
 export interface RestartTarget {
-  mainPid: number
+  mainPid?: number
   hostPid: number
   exePath: string
+  mode?: RestartMode
+  argv?: readonly string[]
+  cwd?: string
 }
 
 /** Loopback endpoints owned by the restart component. */
@@ -69,7 +75,9 @@ export function resolveRestartTarget(
   argv: readonly string[] = [],
   platform: NodeJS.Platform = process.platform,
 ): RestartTarget | undefined {
-  if (platform !== 'win32') return undefined
+  if (platform !== 'win32') {
+    return resolveProcessRestartTarget({ platform, execPath, argv: argv.slice(1), cwd: process.cwd() })
+  }
   if (!Number.isSafeInteger(parentPid) || parentPid <= 0) return undefined
   const configured = typeof override === 'string' ? override.trim() : ''
   const candidate = configured !== '' ? configured : deriveDesktopAppPath(execPath, argv, exists)
@@ -77,6 +85,52 @@ export function resolveRestartTarget(
   const name = basename(candidate).toLowerCase()
   if (name === 'node' || name === 'node.exe') return undefined
   return { mainPid: parentPid, hostPid: process.pid, exePath: candidate }
+}
+
+/** Options for a Linux/macOS/Web process restart target. */
+export interface ProcessRestartOptions {
+  platform?: NodeJS.Platform
+  execPath?: string
+  argv?: readonly string[]
+  execArgv?: readonly string[]
+  cwd?: string
+  pid?: number
+  env?: NodeJS.ProcessEnv
+  pid1?: boolean
+}
+
+/**
+ * Resolve the restart target for a Linux/macOS/Web Host.
+ *
+ * A supervised host (systemd, Docker, Kubernetes, or PID 1) exits and lets its
+ * supervisor restart it. A plain CLI process gets a detached helper that waits
+ * for the old PID to disappear before starting the same command.
+ */
+export function resolveProcessRestartTarget(options: ProcessRestartOptions = {}): RestartTarget | undefined {
+  const platform = options.platform ?? process.platform
+  if (platform === 'win32') return undefined
+  const argv = options.argv ?? process.argv.slice(1)
+  if (argv.length === 0 || argv[0] === '') return undefined
+  const env = options.env ?? process.env
+  const override = (env.DSH_MCVISERON_RESTART_MODE ?? '').trim().toLowerCase()
+  const supervised = override === 'supervisor-exit' || override === 'exit'
+    || (override !== 'reexec' && (
+      env.INVOCATION_ID !== undefined
+      || env.JOURNAL_STREAM !== undefined
+      || env.SYSTEMD_EXEC_PID !== undefined
+      || env.KUBERNETES_SERVICE_HOST !== undefined
+      || existsSync('/.dockerenv')
+      || options.pid1 === true
+      || (options.pid ?? process.pid) === 1
+    ))
+  const nodeArgs = (options.execArgv ?? process.execArgv) as readonly string[]
+  return {
+    hostPid: options.pid ?? process.pid,
+    exePath: options.execPath ?? process.execPath,
+    mode: supervised ? 'supervisor-exit' : 'reexec',
+    argv: [...nodeArgs, ...argv],
+    cwd: options.cwd ?? process.cwd(),
+  }
 }
 
 /**
@@ -102,6 +156,11 @@ export function deriveDesktopAppPath(
   if (runtimeDir === '') return execPath
   const candidate = join(resolve(runtimeDir, '../../..'), 'DeepSeek Harness.exe')
   return exists(candidate) ? candidate : execPath
+}
+
+/** Return the effective action mode for a target. */
+export function restartMode(target: RestartTarget): RestartMode {
+  return target.mode ?? (target.mainPid !== undefined ? 'desktop' : 'reexec')
 }
 
 /** One-time task that starts the desktop application directly. */
@@ -135,31 +194,74 @@ export function makeTaskScript(target: RestartTarget, taskName: string, delaySec
   ].join('\n')
 }
 
-/**
- * Schedule the desktop app to start again, then close its Electron main process.
- * Exported for the session-end action; the settings route keeps its own throttle.
- * @param target - resolved desktop executable and PIDs.
- */
-export function launchRestart(target: RestartTarget): void {
-  launchHelper(target)
+function writeRestartLog(message: string): void {
+  try {
+    appendFileSync(restartLogPath(), new Date().toISOString() + ' ' + message + '\n', 'utf8')
+  } catch { /* diagnostics must never break the action */ }
+}
+
+const PROCESS_HELPER = [
+  "const { spawn } = require('node:child_process')",
+  'const [pidText, cwd, exe, ...args] = process.argv.slice(2)',
+  'const pid = Number(pidText)',
+  'const started = Date.now()',
+  'const start = () => {',
+  '  try {',
+  '    const child = spawn(exe, args, { cwd, detached: true, stdio: "ignore", env: process.env })',
+  '    child.unref()',
+  '  } catch { /* the supervisor or user will see the failure */ }',
+  '}',
+  'const timer = setInterval(() => {',
+  '  let alive = false',
+  '  try { process.kill(pid, 0); alive = true } catch { /* parent is gone */ }',
+  '  if (!alive || Date.now() - started > 30_000) { clearInterval(timer); start() }',
+  '}, 100)',
+  'timer.unref?.()',
+].join('\n')
+
+function ensureProcessHelper(): string {
+  const path = join(tmpdir(), 'dsh-mcviseron-restart-helper.cjs')
+  writeFileSync(path, PROCESS_HELPER, 'utf8')
+  return path
+}
+
+function launchProcessRestart(target: RestartTarget): void {
+  if (target.mode === 'supervisor-exit') {
+    writeRestartLog('host: supervised restart requested; exit 75')
+    setTimeout(() => process.exit(75), 300)
+    return
+  }
+  try {
+    const helper = ensureProcessHelper()
+    const args = [helper, String(process.pid), target.cwd ?? process.cwd(), target.exePath, ...(target.argv ?? [])]
+    const child = spawn(process.execPath, args, { detached: true, stdio: 'ignore', env: { ...process.env, DSH_MCVISERON_RESTARTED: '1' } })
+    child.unref()
+    writeRestartLog('host: detached re-exec helper started')
+  } catch (error) {
+    writeRestartLog('host: re-exec helper failed: ' + (error instanceof Error ? error.message : String(error)))
+    throw new Error('cannot start the Linux restart helper', { cause: error })
+  }
+  setTimeout(() => process.exit(0), 300)
 }
 
 /**
- * Close the desktop app without relaunching it.
- * @param target - resolved desktop target, when available.
+ * Schedule the desktop app or Linux/Web process to start again.
+ * @param target - resolved desktop or process target.
  */
+export function launchRestart(target: RestartTarget): void {
+  if (restartMode(target) === 'desktop') launchHelper(target)
+  else launchProcessRestart(target)
+}
+
+/** Close the desktop app or Host process without relaunching it. */
 export function closeDesktop(target?: RestartTarget): void {
-  const pid = target?.mainPid ?? process.ppid
+  const mainPid = target?.mainPid
   setTimeout(() => {
     try {
-      if (target !== undefined || process.platform === 'win32') process.kill(pid)
+      if (mainPid !== undefined && target !== undefined && restartMode(target) === 'desktop') process.kill(mainPid)
       else process.exit(0)
     } catch {
-      try {
-        process.exit(0)
-      } catch {
-        /* the host is already gone */
-      }
+      try { process.exit(0) } catch { /* the host is already gone */ }
     }
   }, 300)
 }
@@ -182,10 +284,12 @@ function launchHelper(target: RestartTarget): void {
     appendFileSync(logFile, `${new Date().toISOString()} host: task registration failed: ${message}\n`, 'utf8')
     throw new Error('cannot schedule the restart task: ' + message, { cause: error })
   }
+  const mainPid = target.mainPid
+  if (mainPid === undefined) throw new Error('desktop restart target has no main PID')
   setTimeout(() => {
     try {
-      process.kill(target.mainPid)
-      appendFileSync(logFile, `${new Date().toISOString()} host: kill sent to ${target.mainPid}\n`, 'utf8')
+      process.kill(mainPid)
+      appendFileSync(logFile, `${new Date().toISOString()} host: kill sent to ${mainPid}\n`, 'utf8')
     } catch (error) {
       appendFileSync(logFile, `${new Date().toISOString()} host: kill failed: ${error instanceof Error ? error.message : String(error)}\n`, 'utf8')
     }
@@ -217,6 +321,7 @@ async function readJsonBody(req: Parameters<WebRoute['handler']>[0]): Promise<un
 export interface RestartRouteDeps {
   target: () => RestartTarget | undefined
   launch: (target: RestartTarget) => void
+  close?: (target?: RestartTarget) => void
   now?: () => number
 }
 
@@ -238,8 +343,8 @@ export function makeRestartRoutes(deps: RestartRouteDeps): WebRoute[] {
         if (!isLoopbackRequest(req)) return json(res, 403, { ok: false, error: 'forbidden' })
         const target = deps.target()
         json(res, 200, target === undefined
-          ? { ok: true, available: false, reason: 'desktop-app-unavailable' }
-          : { ok: true, available: true, appPath: target.exePath, mainPid: target.mainPid })
+          ? { ok: true, available: false, reason: 'restart-target-unavailable' }
+          : { ok: true, available: true, mode: restartMode(target), appPath: target.exePath, mainPid: target.mainPid ?? null })
       } catch (error) {
         json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
       }
@@ -257,13 +362,16 @@ export function makeRestartRoutes(deps: RestartRouteDeps): WebRoute[] {
         if (body === undefined || typeof body !== 'object' || body === null || (body as { confirm?: unknown }).confirm !== true) {
           return json(res, 400, { ok: false, error: 'confirmation-required' })
         }
+        const action = (body as { action?: unknown }).action ?? 'restart'
+        if (action !== 'restart' && action !== 'close') return json(res, 400, { ok: false, error: 'action-invalid' })
         const latest = now()
-        if (latest - lastLaunch < 5000) return json(res, 429, { ok: false, error: 'restart-already-scheduled' })
+        if (action === 'restart' && latest - lastLaunch < 5000) return json(res, 429, { ok: false, error: 'restart-already-scheduled' })
         const target = deps.target()
-        if (target === undefined) return json(res, 409, { ok: false, error: 'desktop-app-unavailable' })
-        deps.launch(target)
-        lastLaunch = latest
-        json(res, 200, { ok: true, restarting: true, appPath: target.exePath })
+        if (action === 'restart' && target === undefined) return json(res, 409, { ok: false, error: 'restart-target-unavailable' })
+        if (action === 'restart') deps.launch(target!)
+        else (deps.close ?? closeDesktop)(target)
+        if (action === 'restart') lastLaunch = latest
+        json(res, 200, { ok: true, action, restarting: action === 'restart', closing: action === 'close', mode: target === undefined ? null : restartMode(target) })
       } catch (error) {
         json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
       }
@@ -286,7 +394,8 @@ export function apply(ctx: Context, config?: RestartConfig): void {
   const appPath = typeof plain.appPath === 'string' ? plain.appPath : ''
   const routes = makeRestartRoutes({
     target: () => resolveRestartTarget(process.execPath, process.ppid, existsSync, appPath, process.argv),
-    launch: launchHelper,
+    launch: launchRestart,
+    close: closeDesktop,
   })
   ctx.effect(() => {
     const disposers = routes.map(route => ctx.webServer.register(route))

@@ -7,10 +7,11 @@ const EXECUTE = '/api/dsh-mcviseron/restart/execute'
 
 type RestartState =
   | { kind: 'loading' }
-  | { kind: 'ready'; appPath: string }
+  | { kind: 'ready'; appPath: string; mode: string }
   | { kind: 'unavailable' }
   | { kind: 'route-missing' }
   | { kind: 'restarting' }
+  | { kind: 'closing' }
   | { kind: 'failed'; message: string }
 
 async function readError(response: Response): Promise<string> {
@@ -38,10 +39,10 @@ export function RestartCard({ t }: { t: (key: McviseronKey) => string }) {
           return
         }
         if (!response.ok) throw new Error(await readError(response))
-        const body = await response.json() as { ok?: unknown; available?: unknown; appPath?: unknown }
+        const body = await response.json() as { ok?: unknown; available?: unknown; appPath?: unknown; mode?: unknown }
         if (body.ok !== true) throw new Error('restart-status-rejected')
         if (body.available === true) {
-          setState({ kind: 'ready', appPath: typeof body.appPath === 'string' ? body.appPath : '' })
+          setState({ kind: 'ready', appPath: typeof body.appPath === 'string' ? body.appPath : '', mode: typeof body.mode === 'string' ? body.mode : 'desktop' })
         } else {
           setState({ kind: 'unavailable' })
         }
@@ -71,9 +72,32 @@ export function RestartCard({ t }: { t: (key: McviseronKey) => string }) {
     }
   }
 
+  const startClose = async (): Promise<void> => {
+    if (!window.confirm(t('page.restart.closeConfirm'))) return
+    setState({ kind: 'closing' })
+    try {
+      const response = await fetch(EXECUTE, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ confirm: true, action: 'close' }),
+      })
+      if (!response.ok) throw new Error(await readError(response))
+      const body = await response.json() as { ok?: unknown }
+      if (body.ok !== true) throw new Error('close-rejected')
+    } catch (error) {
+      setState({ kind: 'failed', message: error instanceof Error ? error.message : String(error) })
+    }
+  }
+
   const status = state.kind === 'ready'
-    ? t('page.restart.ready')
-    : state.kind === 'route-missing'
+    ? state.mode === 'reexec'
+      ? t('page.restart.modeProcess')
+      : state.mode === 'supervisor-exit'
+        ? t('page.restart.modeSupervisor')
+        : t('page.restart.ready')
+    : state.kind === 'closing'
+      ? t('page.restart.closing')
+      : state.kind === 'route-missing'
       ? t('page.restart.routeMissing')
       : state.kind === 'restarting'
         ? t('page.restart.restarting')
@@ -84,6 +108,7 @@ export function RestartCard({ t }: { t: (key: McviseronKey) => string }) {
             : t('page.restart.unavailable')
 
   const canRestart = state.kind === 'ready' || state.kind === 'failed'
+  const canClose = state.kind === 'ready'
 
   return (
     <div style={pageStyles.card}>
@@ -101,6 +126,14 @@ export function RestartCard({ t }: { t: (key: McviseronKey) => string }) {
           style={canRestart ? styles.button : styles.buttonDisabled}
         >
           {state.kind === 'restarting' ? t('page.restart.restarting') : t('page.restart.button')}
+        </button>
+        <button
+          type="button"
+          disabled={!canClose}
+          onClick={() => { void startClose() }}
+          style={canClose ? styles.button : styles.buttonDisabled}
+        >
+          {state.kind === 'closing' ? t('page.restart.closing') : t('page.restart.close')}
         </button>
       </div>
     </div>

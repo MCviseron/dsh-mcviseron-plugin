@@ -1,3 +1,15 @@
+## [0.8.0] - 2026-11-22
+
+### Added
+
+- **Linux / Web / 云服务器重启与关闭**：重启目标从 Windows 桌面扩展到非 Windows Host 进程。systemd / Docker / Kubernetes / PID 1 使用 supervisor-exit（退出码 75）；普通 `dsh web` 使用 detached reexec helper，等待旧 PID 退出后再启动同一 argv/cwd。可用 `DSH_MCVISERON_RESTART_MODE=reexec|supervisor-exit` 覆盖。
+- **设置页「重启 / 关闭」**：状态显示 desktop / reexec / supervisor-exit；新增关闭 DSH 按钮；Linux/Web 下 `set_session_end_action` 的 restart/close 可用，OS 关机仍为 Windows-only。
+- **文档**：新增 [docs/linux-restart.md](docs/linux-restart.md)，包含 systemd、Docker、Kubernetes 和普通 CLI 的部署/停止策略。
+
+### Tests
+
+- 合计 **129 项测试**；typecheck、build 全绿。
+
 ## [Unreleased]
 
 ### 计划中

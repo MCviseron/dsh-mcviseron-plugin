@@ -11,7 +11,7 @@ MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包、一个 `
 | **外观 · 按时间自动切换深浅色** | `mcviseron` 顶层字段 | 「设置 → 通用 → 外观」新增选项，按本机时间切换浅/深色 |
 | **Auto review 修复** | `mcviseron.autoReviewFix` | 关机不再把 Auto 会话写成完全访问；人审提示追加中文译文 |
 | **Todo 计划守卫** | `mcviseron.taskGuard` | 多阶段任务忘记更新 todo 时发出 notice（可选硬拦截） |
-| **重启 DeepSeek Harness** | `mcviseron.restart` | 「设置 → MCviseron 插件」里的重启按钮：关闭并重新启动桌面应用 |
+| **重启 / 关闭 DSH** | `mcviseron.restart` | 「设置 → MCviseron 插件」里的重启/关闭按钮：Windows 桌面版重启应用；Linux/Web/云服务器使用 supervisor-exit 或 detached reexec |
 | **会话后动作** | `mcviseron.sessionEnd` | 输入框左侧「会话后重启」下拉；AI 工具可设置；重启等待任务结束 |
 | **认证 cookie 清理** | 内置 | 每次页面加载过期旧 `dsh-auth-*`，只保留当前，避免重启把请求头推到 16KB |
 | **自动化任务编辑** | 内置工具 | `automation_task_list/create/update/delete` 直接调用 Host schedule 并自动存盘；API 兼容说明见 [docs/automation-tasks.md](docs/automation-tasks.md) |
@@ -48,9 +48,10 @@ MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包、一个 `
 - **中文 todo 展示**（`translateTodoContent`）：notice 里的英文 todo 标题会经 `llm` 批量翻译成「中文（English）」显示，按标题缓存、超时 3 秒可配；翻译失败就显示原文。notice 里还会提示「todo 内容可以直接用中文书写」。**只影响 notice 展示，不改写模型写入的 todo 列表**。
 - notice 的 source kind 按会话格式自动选择：v4 用 `plugin:task-guard`，v3 用 `plugin` + `plugin: 'task-guard'`。
 
-### 4. 重启 DeepSeek Harness
+### 4. 重启 / 关闭 DSH
 
-- 在「设置 → MCviseron 插件 → 重启」子页提供「重启 DeepSeek Harness」按钮，点击后确认并重启桌面应用。
+- Windows 桌面版：「设置 → MCviseron 插件 → 重启 / 关闭」子页提供重启与关闭按钮，点击后确认并重启/关闭桌面应用。
+- Linux / Web / 云服务器：普通 `dsh web` 使用 detached reexec；systemd / Docker / Kubernetes / PID 1 使用 supervisor-exit（退出码 75）；关闭使用 exit 0，保持停止还是被托管器拉起由部署策略决定。详见 [docs/linux-restart.md](docs/linux-restart.md)。
 - 重启方式：Host 写一个临时 PowerShell 助手（detached），先关闭 Electron 主进程；Host 在 IPC 断开后按官方流程优雅关闭所有插件与会话；助手等待主进程与 Host 退出后，清除 `ELECTRON_RUN_AS_NODE` 并重新启动应用。
 - 会中断正在运行的任务（与托盘「退出」的提示一致），不会修改插件、配置或会话记录。
 - 只在桌面版可用；`dsh web` 下状态接口返回不可用，设置行自动隐藏。
@@ -85,7 +86,7 @@ MCviseron 的 **DeepSeek Harness（DSH）总插件**：一个 npm 包、一个 `
 
 设置里新增一个一级分区 **「MCviseron 插件」**（`settings.section`，id `mcviseron`），组件按需在这里拥有子页：
 
-- **重启**：重启 DeepSeek Harness（本组件的设置面）。
+- **重启 / 关闭**：Windows 桌面版重启 Electron；Linux/Web 按进程模式重启或关闭（见 [docs/linux-restart.md](docs/linux-restart.md)）。
 - **会话后动作**：启用开关、显示等待、AI 邮件提醒、邮件主题/正文模板。
 - **归档时间（条件）**：检测到第三方归档插件时显示；未安装或禁用时不注册、不显示。
 - **组件**：列出八个组件及其配置位置。
@@ -249,12 +250,12 @@ DSH 0.2 的官方设置 apiproxy 不向浏览器暴露第三方命名空间，�
 
 | DSH 版本 | 状态 |
 | --- | --- |
-| `0.2.2-rc.5` | ✅ 预适配（0.2.2-rc.5 类型/依赖 + 126 项测试；当前桌面仍为 rc.3） |
-| `0.2.2-rc.3` | ✅ 当前桌面安装（rc.3 类型/依赖 + 126 项测试；真实运行时验证） |
-| `0.2.2-rc.1` | ✅ 兼容（0.2.2-rc.1 类型/依赖 + 126 项测试） |
-| `0.2.1-rc.5` | ✅ 兼容（rc.5 类型/依赖 + 126 项测试） |
-| `0.2.1-rc.3` | ✅ 兼容（rc.3 类型/依赖 + 126 项测试） |
-| `0.2.1-rc.2` | ✅ 当前桌面运行版本（126 项测试 + 真实 Cordis 上下文） |
+| `0.2.2-rc.5` | ✅ 预适配（0.2.2-rc.5 类型/依赖 + 129 项测试；当前桌面仍为 rc.3） |
+| `0.2.2-rc.3` | ✅ 当前桌面安装（rc.3 类型/依赖 + 129 项测试；真实运行时验证） |
+| `0.2.2-rc.1` | ✅ 兼容（0.2.2-rc.1 类型/依赖 + 129 项测试） |
+| `0.2.1-rc.5` | ✅ 兼容（rc.5 类型/依赖 + 129 项测试） |
+| `0.2.1-rc.3` | ✅ 兼容（rc.3 类型/依赖 + 129 项测试） |
+| `0.2.1-rc.2` | ✅ 当前桌面运行版本（129 项测试 + 真实 Cordis 上下文） |
 | `0.2.0-rc.x` | ✅ peer 范围覆盖（同一套设置、审批与 hook 接缝） |
 | `0.1.x` | ❌ 不支持：0.1 的插件自行注册设置命名空间，与本插件的条目 id 命名空间模型不同 |
 
@@ -320,7 +321,7 @@ test/
 
 ```bash
 pnpm install
-pnpm check     # typecheck + 126 项测试 + 构建
+pnpm check     # typecheck + 129 项测试 + 构建
 ```
 
 构建产物：`lib/index.js`（master ESM）、`lib/appearance.js`、`lib/auto-review-fix.js`、`lib/task-guard.js`、`lib/restart.js` 与 `lib/client.js`（浏览器模块）。`lib/` 不入库。

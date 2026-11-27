@@ -234,12 +234,12 @@ export function createSessionEndController(deps: SessionEndDeps = {}): SessionEn
 
   const view = (sessionId: string): SessionEndView => {
     const entry = entries.get(sessionId)
-    let available = { restart: false, close: platform === 'win32', shutdown: platform === 'win32' }
+    let available = { restart: false, close: true, shutdown: platform === 'win32' }
     try {
       const target = resolveTarget()
       available = {
         restart: target !== undefined,
-        close: target !== undefined || platform === 'win32',
+        close: true,
         shutdown: platform === 'win32',
       }
     } catch {

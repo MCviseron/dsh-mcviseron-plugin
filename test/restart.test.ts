@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { join, resolve } from 'node:path'
 import { Readable } from 'node:stream'
 import test from 'node:test'
-import { deriveDesktopAppPath, makeRestartRoutes, makeTaskScript, RESTART_API, resolveRestartTarget, type RestartTarget } from '../src/restart/index.ts'
+import { deriveDesktopAppPath, makeRestartRoutes, makeTaskScript, RESTART_API, resolveProcessRestartTarget, resolveRestartTarget, type RestartTarget } from '../src/restart/index.ts'
 
 const exists = (path: string) => path === 'D:/DeepSeek Harness/DeepSeek Harness.exe'
 
@@ -31,9 +31,21 @@ test('resolveRestartTarget honours an explicit appPath override', () => {
   assert.equal(target?.exePath, 'D:/Custom/app.exe')
 })
 
-test('resolveRestartTarget is Windows-only', () => {
-  assert.equal(resolveRestartTarget('D:/app.exe', 1, () => true, '', [], 'darwin'), undefined)
+test('resolveRestartTarget resolves a Linux/Web process target', () => {
+  const target = resolveRestartTarget('/usr/bin/node', 1, () => false, '', ['/usr/bin/node', '/app/dsh', 'web', '--port', '3000'], 'linux')
+  assert.equal(target?.mode, 'reexec')
+  assert.equal(target?.exePath, '/usr/bin/node')
+  assert.ok(target?.argv?.includes('/app/dsh'))
   assert.equal(resolveRestartTarget('D:/app.exe', 1, () => true, '', [], 'linux'), undefined)
+})
+
+test('resolveProcessRestartTarget honours supervisor and override modes', () => {
+  const base = { platform: 'linux' as const, execPath: '/usr/bin/node', argv: ['/app/dsh', 'web'], execArgv: [], cwd: '/app', pid: 42 }
+  assert.equal(resolveProcessRestartTarget({ ...base, env: { INVOCATION_ID: 'inv' } })?.mode, 'supervisor-exit')
+  assert.equal(resolveProcessRestartTarget({ ...base, env: { KUBERNETES_SERVICE_HOST: 'k8s' } })?.mode, 'supervisor-exit')
+  assert.equal(resolveProcessRestartTarget({ ...base, env: { DSH_MCVISERON_RESTART_MODE: 'reexec', INVOCATION_ID: 'inv' } })?.mode, 'reexec')
+  assert.equal(resolveProcessRestartTarget({ ...base, env: {}, pid1: true })?.mode, 'supervisor-exit')
+  assert.equal(resolveProcessRestartTarget({ ...base, platform: 'win32', env: {} }), undefined)
 })
 
 test('resolveRestartTarget tolerates a leaked volatile override', () => {
@@ -135,4 +147,13 @@ test('execute rate-limits repeated requests and refuses cross-site callers', asy
   assert.equal(crossSite.status, 403)
   const remote = await call(execute, makeRequest({ confirm: true }, { remoteAddress: '10.0.0.7' }))
   assert.equal(remote.status, 403)
+})
+
+test('execute close action dispatches close without a restart target', async () => {
+  const closed: Array<RestartTarget | undefined> = []
+  const deps = { target: () => undefined, launch: () => { throw new Error('must not restart') }, close: (value?: RestartTarget) => { closed.push(value) }, now: () => 1000 }
+  const response = await call(route(RESTART_API.execute, deps), makeRequest({ confirm: true, action: 'close' }))
+  assert.equal(response.status, 200)
+  assert.equal(response.body.closing, true)
+  assert.deepEqual(closed, [undefined])
 })

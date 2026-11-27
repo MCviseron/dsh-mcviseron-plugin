@@ -262,3 +262,21 @@ test('global state lists AI-armed actions with their labels', async () => {
   assert.equal(parsed.ok, true)
   assert.deepEqual(parsed.actions.map(item => item.sessionId), ['a'])
 })
+
+test('Linux/Web targets expose restart and close without desktop shutdown', async () => {
+  const target = { hostPid: 2, exePath: '/usr/bin/node', mode: 'reexec' as const, argv: ['/app/dsh', 'web'], cwd: '/app' }
+  const { controller, calls } = fixture({
+    platform: 'linux',
+    resolveTarget: () => target,
+    restart: () => { calls.push('restart') },
+    close: () => { calls.push('close') },
+  })
+  const view = controller.get('s')
+  assert.equal(view.available.restart, true)
+  assert.equal(view.available.close, true)
+  assert.equal(view.available.shutdown, false)
+  controller.set('s', 'close', 'user')
+  controller.onTurnEnd('s')
+  await sleep(35)
+  assert.deepEqual(calls, ['close'])
+})

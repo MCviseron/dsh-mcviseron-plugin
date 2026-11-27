@@ -11,7 +11,7 @@ MCviseron's **master plugin for DeepSeek Harness (DSH)**: one npm package and on
 | **Appearance · light/dark by time** | `mcviseron` top-level fields | Adds a settings row below DSH's Appearance row and switches the palette from the local wall clock |
 | **Auto-review hardening** | `mcviseron.autoReviewFix` | Stops the whole-Host shutdown from persisting Full access over an Auto session; appends a Chinese translation to the manual-approval prompt |
 | **Todo plan guard** | `mcviseron.taskGuard` | Advisory notices (optional hard stop) when multi-stage work stops updating its todo plan |
-| **Restart DeepSeek Harness** | `mcviseron.restart` | Button in Settings → MCviseron plugin that closes and relaunches the desktop application |
+| **Restart / close DSH** | `mcviseron.restart` | Settings tab that restarts or closes the Windows desktop app or a Linux/Web/cloud DSH process (supervisor-exit or detached reexec); see [docs/linux-restart.md](docs/linux-restart.md) |
 | **After-session action** | `mcviseron.sessionEnd` | “Restart after session” dropdown in the composer; the AI tool can arm it; restart waits for running tasks |
 | **Auth-cookie cleanup** | built in | Expires old `dsh-auth-*` cookies on every page load, keeping only the current one so restarts cannot push the request header to 16 KB |
 | **Automation task editing** | built-in tools | `automation_task_list/create/update/delete` call the Host schedule service and persist automatically; see [docs/automation-tasks.md](docs/automation-tasks.md) for API compatibility |
@@ -44,9 +44,10 @@ MCviseron's **master plugin for DeepSeek Harness (DSH)**: one npm package and on
 - **Step-intent detection** (`detectStepIntent`): watches the official `agent/assistant-stream` text/reasoning deltas for phrases such as "Now I will …" / "接下来我会 …" and matches them against pending todos. A match adds one targeted, advisory notice per step (with a ready-to-send `todo_write` JSON); a miss, a missing stream, or malformed data is silently skipped and never blocks the task.
 - **Chinese todo display** (`translateTodoContent`): English todo titles in notices are batch-translated into "中文（English）" through the host `llm` service (cached per title, 3 s default timeout, original text on failure). Display only — the model's stored todo list is never rewritten.
 
-### 4. Restart DeepSeek Harness
+### 4. Restart / close DSH
 
-- A "Settings → MCviseron plugin → Restart" tab asks for confirmation and restarts the desktop app.
+- Windows desktop: the **Restart / close** tab asks for confirmation and restarts or closes the desktop app.
+- Linux / Web / cloud: a plain `dsh web` process uses a detached reexec helper; systemd / Docker / Kubernetes / PID 1 use supervisor-exit (code 75); close exits with code 0 and the deployment policy decides whether it restarts. See [docs/linux-restart.md](docs/linux-restart.md).
 - A detached PowerShell helper closes the Electron main process; the Host performs its normal graceful shutdown when its IPC channel disconnects; the helper waits for both processes, clears `ELECTRON_RUN_AS_NODE`, and starts the application again.
 - Running tasks are interrupted (same warning as the tray Quit); plugins, settings, and session records are not modified.
 - Desktop-only: under `dsh web` the status route reports unavailable and the row hides.
@@ -154,12 +155,12 @@ Defaults: appearance off / `08:00–23:00`; auto-review both guards on, 6 s, 400
 
 | DSH version | Status |
 | --- | --- |
-| `0.2.2-rc.5` | ✅ pre-adapted (0.2.2-rc.5 types/deps + 126 tests; current desktop still rc.3) |
-| `0.2.2-rc.3` | ✅ current desktop (rc.3 types/deps + 126 tests; real runtime verified) |
-| `0.2.2-rc.1` | ✅ compatible (0.2.2-rc.1 types/deps + 126 tests) |
-| `0.2.1-rc.5` | ✅ compatible (rc.5 types/deps + 126 tests) |
-| `0.2.1-rc.3` | ✅ compatible (rc.3 types/deps + 126 tests) |
-| `0.2.1-rc.2` | ✅ current desktop runtime (126 tests + real Cordis contexts) |
+| `0.2.2-rc.5` | ✅ pre-adapted (0.2.2-rc.5 types/deps + 129 tests; current desktop still rc.3) |
+| `0.2.2-rc.3` | ✅ current desktop (rc.3 types/deps + 129 tests; real runtime verified) |
+| `0.2.2-rc.1` | ✅ compatible (0.2.2-rc.1 types/deps + 129 tests) |
+| `0.2.1-rc.5` | ✅ compatible (rc.5 types/deps + 129 tests) |
+| `0.2.1-rc.3` | ✅ compatible (rc.3 types/deps + 129 tests) |
+| `0.2.1-rc.2` | ✅ current desktop runtime (129 tests + real Cordis contexts) |
 | `0.2.0-rc.x` | ✅ covered by the peer range |
 | `0.1.x` | ❌ unsupported (different settings-namespace model) |
 
