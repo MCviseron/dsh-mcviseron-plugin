@@ -1,3 +1,13 @@
+## [0.8.2] - 2026-11-22
+
+### Fixed
+
+- **自动化任务 API 的组件内文本**：Settings → MCviseron 插件 → 组件新增「自动化任务 API」行；automation-tasks 的 system prompt 补入 DSH 0.2.2 的 `schedule.list/create/edit` 签名及旧版兼容说明，避免组件只暴露工具名而没有管理 API 文本。
+
+### Tests
+
+- 129 项测试；typecheck、build 全绿。
+
 ## [0.8.1] - 2026-11-22
 
 ### Fixed

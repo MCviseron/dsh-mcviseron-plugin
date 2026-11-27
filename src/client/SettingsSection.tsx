@@ -209,6 +209,10 @@ export function SettingsSection({ t }: SettingsSectionProps) {
               <span style={pageStyles.componentName}>{t('page.components.sessionEnd')}</span>
               <span style={pageStyles.componentHint}>{t('page.components.sessionEndHint')}</span>
             </div>
+            <div style={pageStyles.componentRow}>
+              <span style={pageStyles.componentName}>{t('page.components.automationTasks')}</span>
+              <span style={pageStyles.componentHint}>{t('page.components.automationTasksHint')}</span>
+            </div>
             {archive?.available
               ? (
                 <div style={pageStyles.componentRow}>

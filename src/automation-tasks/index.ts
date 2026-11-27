@@ -371,6 +371,7 @@ export function apply(ctx: Context): void {
           text: [
             'Official DSH automation tasks are writable from this conversation.',
             'Use automation_task_list / automation_task_create / automation_task_update / automation_task_delete; they call the Host schedule service and persist automatically.',
+            'Host Schedule API (DSH 0.2.2+): list({}) returns { items }; create({ title, prompt, timing, target }, sessionId, signal); edit({ id, action: "update", patch }, sessionId, signal); edit({ id, action: "delete" }, sessionId, signal). Older hosts expose list({ sessionId }), create(sessionId, request), update and delete; these tools normalize both shapes.',
             'Never edit ~/.dsh/storages/schedule.json by hand, and never tell the user to use a command to change a task when these tools are available.',
           ].join(' '),
         })
